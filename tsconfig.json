@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "node16",
-    "moduleResolution": "node16",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
@@ -10,8 +10,16 @@
     "outDir": "dist",
     "rootDir": ".",
     "paths": { "@/*": ["./renderer/*"] },
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node", "jest"]
   },
-  "include": ["electron/**/*", "renderer/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "electron/**/*",
+    "renderer/**/*",
+    "scripts/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }
