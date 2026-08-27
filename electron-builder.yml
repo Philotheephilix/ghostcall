@@ -1,0 +1,11 @@
+appId: io.ghostcall.app
+productName: GhostCall
+files:
+  - dist/**
+  - renderer/out/**
+mac:
+  category: public.app-category.utilities
+linux:
+  category: Utility
+win:
+  target: nsis
