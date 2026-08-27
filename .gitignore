@@ -2,7 +2,8 @@ node_modules/
 dist/
 .next/
 .env
-.env.*
+.env.local
+.env.*.local
 docs/
 .superpowers/
 .DS_Store

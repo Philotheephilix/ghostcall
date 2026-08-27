@@ -1,0 +1,16 @@
+{
+  "network": "SN_SEPOLIA",
+  "timestamp": "2026-08-27T06:30:00.000Z",
+  "StealthRegistry": {
+    "classHash": "0x1f1995052e78c532a548f6336ec768c9524d07c6e92542f28fbe3a09db1ac42",
+    "address": "0x0124faa529f871a9fb6a1ad7df7af47a55d153a11fa234b70a0a6cae2eb0c388",
+    "declareTx": "0x5e25dc028a522fd9db836df37f5db19818be7ec2fe3ea08afca74f931f78f88",
+    "deployTx": "0x0225877d3b96bdabd4bdaef585b9e8694f3a5803ff405bd24786215c464e99c4"
+  },
+  "CallLog": {
+    "classHash": "0x763c7d1d672bec14ae9827ad9de14bda8b44f6ef65e20ea19a6e068d1fd143d",
+    "address": "0x06ee3855da9d6a83cff966ca5a3624719a4ce88e096a50dc94012507ea6f8b43",
+    "declareTx": "0x351a646e732d3d82e49e8ff817360fe8901b327ea9536d735ae8849300bac18",
+    "deployTx": "0x01b0b6e7369553c2261d13ffb6c408825c18500f466f2ae3214cd5a095ad2e95"
+  }
+}

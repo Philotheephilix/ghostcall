@@ -1,0 +1,7 @@
+[sncast.default]
+url = "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/oJTjnNCsJEOqYv3MMtrtT6LUFhwcW9pR"
+account = "deployer"
+
+[sncast.deployer]
+address = "0x52b6665bf24e43e5a612417f43ceaf120186d091f5d2fcb3782bf2d672ad13f"
+private-key = "0x21e24dc4c918ecc41399da63e408923f0c65eec9123e37034a43ba6ce4c48c3"

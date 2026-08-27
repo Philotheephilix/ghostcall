@@ -18,9 +18,11 @@
     "@types/react-dom": "^19.2.5",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
+    "dotenv": "^17.4.2",
     "electron": "^32.3.3",
     "electron-builder": "^25.1.8",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "wait-on": "^9.1.0"
   },
@@ -34,7 +36,7 @@
     "opusscript": "^0.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "starknet": "^6.24.1",
+    "starknet": "^7.6.4",
     "tailwindcss": "^3.4.19"
   }
 }

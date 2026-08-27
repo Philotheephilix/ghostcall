@@ -1,0 +1,120 @@
+/* Japandi design tokens — Japanese minimalism × Scandinavian functionality
+   Palette: warm neutrals (washi, birch, stone) + single accent (sage green = Tor active)
+   Typography: clean, airy, generous whitespace
+   Tone: calm, intentional, uncluttered */
+
+:root {
+  /* ── Surface ── */
+  --surface-bg:        #F5F2EE;  /* washi paper — warm off-white */
+  --surface-elevated:  #EDE9E3;  /* slightly deeper warm linen */
+  --surface-inset:     #E4DED6;  /* inset / pressed state */
+  --surface-overlay:   rgba(245, 242, 238, 0.92); /* modal/overlay */
+
+  /* ── Ink ── */
+  --ink-primary:       #1C1917;  /* near-black warm — main text */
+  --ink-secondary:     #57534E;  /* warm mid-gray — secondary text */
+  --ink-muted:         #A8A29E;  /* muted — hints, placeholders */
+  --ink-inverse:       #F5F2EE;  /* text on dark surfaces */
+
+  /* ── Accent — Sage (Tor active / secure state) ── */
+  --accent:            #4A7C59;  /* muted sage green */
+  --accent-light:      #6B9E78;  /* lighter sage for hover */
+  --accent-subtle:     rgba(74, 124, 89, 0.12); /* tinted bg */
+
+  /* ── Status ── */
+  --status-connected:  #4A7C59;  /* sage — Tor connected */
+  --status-calling:    #8B6F47;  /* warm amber — ringing */
+  --status-error:      #9B4B4B;  /* muted terracotta — error */
+  --status-idle:       #A8A29E;  /* stone — offline/idle */
+
+  /* ── Border ── */
+  --border-subtle:     rgba(28, 25, 23, 0.08);
+  --border-default:    rgba(28, 25, 23, 0.14);
+  --border-strong:     rgba(28, 25, 23, 0.28);
+
+  /* ── Logo color variants ── */
+  --logo-shell:        #1C1917;  /* outer shell stroke on light bg */
+  --logo-mid:          #A8A29E;  /* mid layer */
+  --logo-core:         #4A7C59;  /* inner core = accent */
+
+  /* ── Spacing (4pt grid) ── */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── Radius ── */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* ── Typography ── */
+  --font-sans: 'Inter', 'Hiragino Kaku Gothic ProN', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   18px;
+  --text-xl:   24px;
+  --text-2xl:  32px;
+
+  --leading-tight:  1.25;
+  --leading-normal: 1.5;
+  --leading-loose:  1.8;
+
+  --tracking-tight:  -0.02em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.06em;
+  --tracking-widest:  0.12em;
+
+  /* ── Motion ── */
+  --ease-out:    cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0.0, 0.6, 1);
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   350ms;
+
+  /* ── Shadow ── */
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.06);
+  --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.08);
+  --shadow-lg: 0 8px 24px rgba(28, 25, 23, 0.10);
+}
+
+/* Dark mode — same Japandi warmth, inverted */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-bg:       #141210;
+    --surface-elevated: #1C1917;
+    --surface-inset:    #232018;
+    --surface-overlay:  rgba(20, 18, 16, 0.94);
+
+    --ink-primary:      #F5F2EE;
+    --ink-secondary:    #A8A29E;
+    --ink-muted:        #57534E;
+    --ink-inverse:      #1C1917;
+
+    --accent:           #6B9E78;
+    --accent-light:     #89BB96;
+    --accent-subtle:    rgba(107, 158, 120, 0.12);
+
+    --logo-shell:       #F5F2EE;
+    --logo-mid:         #57534E;
+    --logo-core:        #6B9E78;
+
+    --border-subtle:    rgba(245, 242, 238, 0.06);
+    --border-default:   rgba(245, 242, 238, 0.10);
+    --border-strong:    rgba(245, 242, 238, 0.20);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.20);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.36);
+  }
+}
