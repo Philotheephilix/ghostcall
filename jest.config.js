@@ -2,9 +2,9 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  // Transform @noble ESM packages (they're type:module but we need CJS)
+  // Transform all ESM-only packages and their nested copies under nostr-tools
   transformIgnorePatterns: [
-    'node_modules/(?!(@noble)/)',
+    'node_modules/(?!(nostr-tools/node_modules/@noble|@noble|@scure|nostr-tools)/)',
   ],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
