@@ -1,12 +1,9 @@
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { ec } from 'starknet'
-
-// Re-export the Stark curve's ProjectivePoint for internal ECDH
-const { ProjectivePoint, utils: starkUtils } = ec.starkCurve
+import { ProjectivePoint, CURVE } from '@scure/starknet'
 
 // Stark curve order
-const STARK_ORDER = ec.starkCurve.CURVE.n
+const STARK_ORDER = CURVE.n
 
 export interface StealthKeypair {
   skV: bigint
@@ -55,12 +52,11 @@ export function deriveStealthKeypair(sig: { r: bigint; s: bigint }): StealthKeyp
  * ECDH commutativity: deriveSessionKey(skA, pkB) === deriveSessionKey(skB, pkA)
  */
 export function deriveSessionKey(
-  localPriv: bigint,
-  remotePubX: bigint,
-  remotePubY: bigint
+  localSk: bigint,
+  remotePk: { x: bigint; y: bigint }
 ): Uint8Array {
-  const remotePoint = ProjectivePoint.fromAffine({ x: remotePubX, y: remotePubY })
-  const shared = remotePoint.multiply(localPriv)
+  const remotePoint = ProjectivePoint.fromAffine({ x: remotePk.x, y: remotePk.y })
+  const shared = remotePoint.multiply(localSk)
   const sharedBytes = bigintToBytes32(shared.x)
   return hkdf(sha256, sharedBytes, undefined, new TextEncoder().encode('ghostcall-session-v1'), 32)
 }
@@ -93,6 +89,3 @@ function bigintToBytes32(n: bigint): Uint8Array {
 function bytesToBigint(bytes: Uint8Array): bigint {
   return BigInt('0x' + Buffer.from(bytes).toString('hex'))
 }
-
-// Suppress unused import warning - starkUtils used for tree-shaking keepalive
-void starkUtils

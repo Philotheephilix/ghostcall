@@ -10,8 +10,18 @@ const deployments = require('../../contracts/deployments.json')
 
 // Initialized once with wallet credentials (from IPC bridge in production,
 // directly from env in scripts/live tests)
-let _provider: RpcProvider
-let _account: Account
+let _provider: RpcProvider | undefined
+let _account: Account | undefined
+
+function requireProvider(): RpcProvider {
+  if (!_provider) throw new Error('Starknet client not initialized — call initStarknetClient first')
+  return _provider
+}
+
+function requireAccount(): Account {
+  if (!_account) throw new Error('Starknet client not initialized — call initStarknetClient first')
+  return _account
+}
 
 export function initStarknetClient(
   rpcUrl: string,
@@ -23,11 +33,11 @@ export function initStarknetClient(
 }
 
 export function getProvider(): RpcProvider {
-  return _provider
+  return requireProvider()
 }
 
 export function getAccount(): Account {
-  return _account
+  return requireAccount()
 }
 
 /**
@@ -40,10 +50,11 @@ export async function registerHandle(
   kp: StealthKeypair
 ): Promise<string> {
   const handleHash = deriveHandleHash(handle)
+  const account = requireAccount()
   const contract = new Contract(
     stealthRegistrySierra.abi,
     deployments.StealthRegistry.address,
-    _account
+    account
   )
   const res = await contract.register(
     num.toHex(handleHash),
@@ -52,7 +63,7 @@ export async function registerHandle(
     num.toHex(kp.pkS.x),
     num.toHex(kp.pkS.y)
   )
-  await _provider.waitForTransaction(res.transaction_hash)
+  await requireProvider().waitForTransaction(res.transaction_hash)
   return res.transaction_hash as string
 }
 
@@ -65,7 +76,7 @@ export async function lookupHandle(handle: string): Promise<StealthMeta> {
   const contract = new Contract(
     stealthRegistrySierra.abi,
     deployments.StealthRegistry.address,
-    _provider
+    requireProvider()
   )
   const result = await contract.get_stealth_meta(num.toHex(handleHash))
   // starknet.js v7 returns a Result object with numeric string keys '0','1','2','3'
@@ -84,14 +95,15 @@ export async function lookupHandle(handle: string): Promise<StealthMeta> {
  * Sends a transaction to CallLog.commit_call().
  * Returns the transaction hash.
  */
-export async function commitCall(commitment: bigint): Promise<string> {
+export async function commitCall(callId: string | bigint): Promise<string> {
+  const commitment = typeof callId === 'string' ? BigInt(callId) : callId
   const contract = new Contract(
     callLogSierra.abi,
     deployments.CallLog.address,
-    _account
+    requireAccount()
   )
   const res = await contract.commit_call(num.toHex(commitment))
-  await _provider.waitForTransaction(res.transaction_hash)
+  await requireProvider().waitForTransaction(res.transaction_hash)
   return res.transaction_hash as string
 }
 
@@ -104,7 +116,7 @@ export async function isRegistered(handle: string): Promise<boolean> {
   const contract = new Contract(
     stealthRegistrySierra.abi,
     deployments.StealthRegistry.address,
-    _provider
+    requireProvider()
   )
   const result = await contract.is_registered(num.toHex(handleHash))
   return Boolean(result)
@@ -118,7 +130,7 @@ export async function isCommitted(commitment: bigint): Promise<boolean> {
   const contract = new Contract(
     callLogSierra.abi,
     deployments.CallLog.address,
-    _provider
+    requireProvider()
   )
   const result = await contract.is_committed(num.toHex(commitment))
   return Boolean(result)

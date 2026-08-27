@@ -8,16 +8,11 @@ module.exports = {
   ],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        module: 'commonjs',
-        moduleResolution: 'node',
-      },
+      tsconfig: 'tsconfig.test.json',
+      diagnostics: { tsConfig: 'tsconfig.test.json' },
     }],
     '^.+\\.js$': ['ts-jest', {
-      tsconfig: {
-        module: 'commonjs',
-        moduleResolution: 'node',
-      },
+      tsconfig: 'tsconfig.test.json',
     }],
   },
   // Strip .js extensions from imports so jest can resolve .ts files

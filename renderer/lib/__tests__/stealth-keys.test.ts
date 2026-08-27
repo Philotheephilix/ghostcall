@@ -3,7 +3,7 @@ import { deriveStealthKeypair, deriveHandleHash, deriveSessionKey } from '../ste
 describe('deriveStealthKeypair', () => {
   const sig = { r: 0xdeadbeefn, s: 0xcafebaben }
 
-  test('produces valid secp256k1 points (x,y > 0)', () => {
+  test('produces valid Stark curve points (x,y > 0)', () => {
     const kp = deriveStealthKeypair(sig)
     expect(kp.skV).toBeGreaterThan(0n)
     expect(kp.skS).toBeGreaterThan(0n)
@@ -74,9 +74,9 @@ describe('deriveSessionKey', () => {
     const kpB = deriveStealthKeypair(sigB)
 
     // A uses their sk, B's viewing pubkey
-    const sessionA = deriveSessionKey(kpA.skV, kpB.pkV.x, kpB.pkV.y)
+    const sessionA = deriveSessionKey(kpA.skV, { x: kpB.pkV.x, y: kpB.pkV.y })
     // B uses their sk, A's viewing pubkey
-    const sessionB = deriveSessionKey(kpB.skV, kpA.pkV.x, kpA.pkV.y)
+    const sessionB = deriveSessionKey(kpB.skV, { x: kpA.pkV.x, y: kpA.pkV.y })
 
     expect(Buffer.from(sessionA).toString('hex')).toBe(
       Buffer.from(sessionB).toString('hex')
@@ -86,7 +86,7 @@ describe('deriveSessionKey', () => {
   test('produces 32-byte key', () => {
     const kpA = deriveStealthKeypair(sigA)
     const kpB = deriveStealthKeypair(sigB)
-    const session = deriveSessionKey(kpA.skV, kpB.pkV.x, kpB.pkV.y)
+    const session = deriveSessionKey(kpA.skV, { x: kpB.pkV.x, y: kpB.pkV.y })
     expect(session.length).toBe(32)
   })
 
@@ -96,8 +96,8 @@ describe('deriveSessionKey', () => {
     const sigC = { r: 0xeeee5555n, s: 0xffff6666n }
     const kpC = deriveStealthKeypair(sigC)
 
-    const sessionAB = deriveSessionKey(kpA.skV, kpB.pkV.x, kpB.pkV.y)
-    const sessionAC = deriveSessionKey(kpA.skV, kpC.pkV.x, kpC.pkV.y)
+    const sessionAB = deriveSessionKey(kpA.skV, { x: kpB.pkV.x, y: kpB.pkV.y })
+    const sessionAC = deriveSessionKey(kpA.skV, { x: kpC.pkV.x, y: kpC.pkV.y })
 
     expect(Buffer.from(sessionAB).toString('hex')).not.toBe(
       Buffer.from(sessionAC).toString('hex')

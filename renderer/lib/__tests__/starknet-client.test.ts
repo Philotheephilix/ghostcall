@@ -9,6 +9,32 @@ let lastGetStealthMetaArgs: unknown[] = []
 let lastCommitCallArgs: unknown[] = []
 let lastWaitForTxHash = ''
 
+// ---- @scure/starknet mock (used by stealth-keys.ts directly) ----
+const STARK_ORDER = 2n ** 251n + 17n * 2n ** 192n + 976n + 1n
+
+jest.mock('@scure/starknet', () => {
+  const STARK_ORDER_INNER = 2n ** 251n + 17n * 2n ** 192n + 976n + 1n
+  return {
+    CURVE: { n: STARK_ORDER_INNER },
+    ProjectivePoint: {
+      BASE: {
+        multiply: (scalar: bigint) => ({
+          x: scalar % STARK_ORDER_INNER,
+          y: (scalar + 1n) % STARK_ORDER_INNER,
+        }),
+      },
+      fromAffine: ({ x, y }: { x: bigint; y: bigint }) => ({
+        x, y,
+        multiply: (scalar: bigint) => ({
+          x: scalar * x % STARK_ORDER_INNER,
+          y: scalar * y % STARK_ORDER_INNER,
+        }),
+      }),
+    },
+    utils: {},
+  }
+})
+
 // ---- starknet module mock ----
 jest.mock('starknet', () => {
   const mockWaitForTransaction = jest.fn(async (hash: string) => {
@@ -31,17 +57,15 @@ jest.mock('starknet', () => {
     }),
     get_stealth_meta: jest.fn(async (...args: unknown[]) => {
       lastGetStealthMetaArgs = args
-      // Return a tuple of 4 felt252 values
-      return [
-        BigInt('0x1111'), BigInt('0x2222'),
-        BigInt('0x3333'), BigInt('0x4444'),
-      ]
+      // Return object with numeric keys (starknet.js v7 tuple format)
+      return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444') }
     }),
     commit_call: jest.fn(async (...args: unknown[]) => {
       lastCommitCallArgs = args
       return { transaction_hash: '0xCOMMIT_TX' }
     }),
     is_committed: jest.fn(async () => BigInt(1)),
+    is_registered: jest.fn(async () => false),
   }
 
   const mockContract = jest.fn().mockImplementation(() => mockContractInstance)
@@ -50,44 +74,13 @@ jest.mock('starknet', () => {
     toHex: (n: bigint) => '0x' + n.toString(16),
   }
 
-  // Minimal Stark curve mock for stealth-keys.ts which imports ec.starkCurve
-  // Using a tiny weierstrass-like structure with known test values
-  const STARK_ORDER = 2n ** 251n + 17n * 2n ** 192n + 976n + 1n
-  const mockPoint = {
-    x: 1n,
-    y: 2n,
-    multiply: (scalar: bigint) => ({ x: scalar % STARK_ORDER, y: (scalar + 1n) % STARK_ORDER }),
-    fromAffine: ({ x, y }: { x: bigint; y: bigint }) => ({
-      x, y,
-      multiply: (scalar: bigint) => ({ x: scalar * x % STARK_ORDER, y: scalar * y % STARK_ORDER }),
-    }),
-  }
-  const starkCurve = {
-    CURVE: { n: STARK_ORDER },
-    ProjectivePoint: {
-      BASE: {
-        multiply: (scalar: bigint) => ({ x: scalar % STARK_ORDER, y: (scalar + 1n) % STARK_ORDER }),
-      },
-      fromAffine: ({ x, y }: { x: bigint; y: bigint }) => ({
-        x, y,
-        multiply: (scalar: bigint) => ({ x: scalar * x % STARK_ORDER, y: scalar * y % STARK_ORDER }),
-      }),
-    },
-    utils: {},
-  }
-  const ec = { starkCurve }
-
   return {
     RpcProvider: mockRpcProvider,
     Account: mockAccount,
     Contract: mockContract,
     num,
-    ec,
   }
 })
-
-// suppress unused var
-void 0
 
 // ---- mock JSON imports (require'd by starknet-client) ----
 jest.mock(
@@ -179,7 +172,7 @@ describe('lookupHandle', () => {
 })
 
 describe('commitCall', () => {
-  test('passes a single felt252 calldata arg', async () => {
+  test('accepts bigint and passes single felt252 calldata arg', async () => {
     const commitment = 0x1234567890abcdefn
     const txHash = await commitCall(commitment)
 
@@ -187,5 +180,15 @@ describe('commitCall', () => {
     expect(lastCommitCallArgs).toHaveLength(1)
     expect(typeof lastCommitCallArgs[0]).toBe('string')
     expect(lastCommitCallArgs[0] as string).toMatch(/^0x[0-9a-f]+$/i)
+  })
+
+  test('accepts hex string and converts to felt252 calldata', async () => {
+    const txHash = await commitCall('0x1234567890abcdef')
+
+    expect(txHash).toBe('0xCOMMIT_TX')
+    expect(lastCommitCallArgs).toHaveLength(1)
+    expect(typeof lastCommitCallArgs[0]).toBe('string')
+    // The string 0x1234567890abcdef converts to bigint then back to hex
+    expect(lastCommitCallArgs[0] as string).toBe('0x1234567890abcdef')
   })
 })

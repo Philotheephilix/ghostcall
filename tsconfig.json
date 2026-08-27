@@ -11,7 +11,7 @@
     "rootDir": ".",
     "paths": { "@/*": ["./renderer/*"] },
     "skipLibCheck": true,
-    "types": ["node", "jest"]
+    "types": ["node"]
   },
   "include": [
     "electron/**/*",
@@ -20,6 +20,9 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }
