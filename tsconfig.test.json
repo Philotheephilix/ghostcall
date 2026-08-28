@@ -6,6 +6,8 @@
   "include": [
     "renderer/**/*.test.ts",
     "renderer/**/__tests__/**/*.ts",
+    "electron/**/__tests__/**/*.ts",
+    "electron/**/*.test.ts",
     "scripts/**/*.test.ts"
   ]
 }
