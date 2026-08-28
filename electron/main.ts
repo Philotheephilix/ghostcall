@@ -1,5 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
+// Load .env before anything else — must be first
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('dotenv').config({ path: path.join(__dirname, '../../.env') })
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
 import { initStarknetClient } from '../renderer/lib/starknet-client'
