@@ -17,19 +17,13 @@ export default function SetupPage() {
     setIsConnecting(true)
     setStatusMsg('')
     try {
-      // Use get-starknet if available, otherwise stub
-      const getStarknet = (window as any).starknet
-      if (getStarknet?.enable) {
-        await getStarknet.enable()
-        setWalletConnected(true)
-        setStatusMsg('Wallet connected')
-      } else {
-        // Fallback: mark connected (dev mode without wallet extension)
-        setWalletConnected(true)
-        setStatusMsg('Wallet connected (dev mode)')
+      const starknet = (window as any).starknet
+      if (starknet?.enable) {
+        await starknet.enable()
       }
+      setWalletConnected(true)
     } catch (e) {
-      setStatusMsg(`Error: ${(e as Error).message}`)
+      setStatusMsg((e as Error).message)
     } finally {
       setIsConnecting(false)
     }
@@ -43,67 +37,48 @@ export default function SetupPage() {
     try {
       const gc = (window as any).ghostcall
       const result = await gc.registerStealth(handle.trim())
-      const hash = typeof result === 'string' ? result : result?.txHash ?? result?.transaction_hash ?? JSON.stringify(result)
+      const hash = typeof result === 'string' ? result : result?.transaction_hash ?? JSON.stringify(result)
       setTxHash(hash)
-      setStatusMsg('Registered on-chain')
     } catch (e) {
-      setStatusMsg(`Error: ${(e as Error).message}`)
+      setStatusMsg((e as Error).message)
     } finally {
       setIsRegistering(false)
     }
   }
 
-  const torDotClass = torStatus?.running ? 'status-dot status-dot--connected' : 'status-dot status-dot--error'
-  const torLabel = torStatus?.running ? 'Tor running' : 'Tor unavailable'
+  const torOk = torStatus?.running === true
 
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: 'var(--surface-bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 'var(--space-8)',
-      gap: 'var(--space-8)',
-    }}>
-      {/* Logo + wordmark */}
+    <main className="page" style={{ gap: 'var(--space-8)' }}>
+      {/* Identity */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)' }}>
-        <Logo size={72} variant="dark" />
-        <h1 style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: 'var(--text-xl)',
-          fontWeight: 300,
-          letterSpacing: 'var(--tracking-widest)',
-          color: 'var(--ink-primary)',
-          margin: 0,
-        }}>
-          ghostcall
-        </h1>
+        <Logo size={64} variant="dark" />
+        <span className="wordmark">ghostcall</span>
       </div>
 
       {/* Setup card */}
-      <div className="card" style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        {/* Step 1 — connect wallet */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <span className="label">Step 1</span>
+      <div className="card" style={{ width: '100%', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+        {/* Step 1 */}
+        <div className="form-stack">
+          <span className="label">Connect wallet</span>
           <button
             className="btn-primary"
             onClick={connectWallet}
             disabled={isConnecting || walletConnected}
-            style={{ width: '100%' }}
           >
-            {walletConnected ? 'Wallet connected' : isConnecting ? 'Connecting…' : 'Connect wallet'}
+            {walletConnected ? 'Connected' : isConnecting ? 'Connecting…' : 'Connect'}
           </button>
         </div>
 
-        {/* Step 2 — register handle */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <span className="label">Step 2</span>
+        <div className="divider" />
+
+        {/* Step 2 */}
+        <div className="form-stack">
+          <span className="label">Choose a handle</span>
           <input
             className="input"
             type="text"
-            placeholder="your handle"
+            placeholder="alice"
             value={handle}
             onChange={e => setHandle(e.target.value)}
             disabled={!walletConnected || isRegistering}
@@ -113,39 +88,25 @@ export default function SetupPage() {
             className="btn-primary"
             onClick={register}
             disabled={!walletConnected || !handle.trim() || isRegistering}
-            style={{ width: '100%' }}
           >
-            {isRegistering ? 'Registering…' : 'Register'}
+            {isRegistering ? 'Registering…' : 'Register on-chain'}
           </button>
         </div>
 
-        {/* Status */}
+        {/* Feedback */}
         {(statusMsg || txHash) && (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-1)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--ink-secondary)',
-          }}>
-            {statusMsg && <span>{statusMsg}</span>}
-            {txHash && (
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-muted)' }}>
-                tx {txHash.slice(0, 10)}…{txHash.slice(-6)}
-              </span>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
+            {statusMsg && <span className="mono-xs" style={{ color: 'var(--status-error)' }}>{statusMsg}</span>}
+            {txHash && <span className="mono-xs">tx {txHash.slice(0, 10)}…{txHash.slice(-6)}</span>}
           </div>
         )}
       </div>
 
-      {/* Tor status indicator */}
+      {/* Tor pill */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-        <span
-          className={torDotClass}
-          title={torStatus?.error ?? torLabel}
-        />
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-muted)' }}>
-          {torLabel}
+        <span className={`status-dot ${torOk ? 'status-dot--connected' : 'status-dot--error'}`} />
+        <span className="mono-xs" style={{ color: torOk ? 'var(--accent)' : 'var(--status-error)' }}>
+          {torOk ? 'Tor connected' : 'Tor unavailable'}
         </span>
       </div>
     </main>

@@ -11,117 +11,62 @@ export default function Home() {
   const [onionAddr, setOnionAddr] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
 
-  type GhostCall = {
-    onCallConnected?: (cb: (info: { direction: string; onionAddr?: string }) => void) => void
-    onCallError?: (cb: (err: { message: string }) => void) => void
-    goOnline?: () => Promise<string | { onionAddr?: string }>
-  }
-
   useEffect(() => {
-    const gc = (window as Window & { ghostcall?: GhostCall }).ghostcall
+    const gc = (window as any).ghostcall
     if (!gc) return
-
-    gc.onCallConnected?.((_info) => {
-      // Navigate to call screen when incoming call connects
-      window.location.href = '/call'
-    })
-
-    gc.onCallError?.((err) => {
-      setStatusMsg(`Call failed: ${err.message}`)
-    })
+    gc.onCallConnected?.(() => { window.location.href = '/call' })
+    gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
   }, [])
 
   async function goOnline() {
-    const gc = (window as Window & { ghostcall?: GhostCall }).ghostcall
-    if (!gc?.goOnline) return
+    const gc = (window as any).ghostcall
     try {
-      const result = await gc.goOnline()
+      const result = await gc?.goOnline?.()
       const addr = typeof result === 'string' ? result : result?.onionAddr ?? ''
       setOnionAddr(addr)
       setIsOnline(true)
       setStatusMsg('')
     } catch (e) {
-      setStatusMsg(`Error: ${(e as Error).message}`)
+      setStatusMsg((e as Error).message)
     }
   }
 
-  const torConnected = torStatus?.running === true
-  const torDotClass = torConnected ? 'status-dot status-dot--connected' : 'status-dot status-dot--error'
+  const torOk = torStatus?.running === true
 
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: 'var(--surface-bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 'var(--space-8)',
-      gap: 'var(--space-8)',
-    }}>
-      {/* Tor unavailable banner */}
-      {torStatus && !torConnected && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          background: 'var(--status-error)',
-          color: '#fff',
-          fontSize: 'var(--text-xs)',
-          fontFamily: 'var(--font-sans)',
-          letterSpacing: 'var(--tracking-wide)',
-          padding: 'var(--space-3) var(--space-6)',
-          textAlign: 'center',
-          zIndex: 100,
-        }}>
-          Tor unavailable — calls require Tor.{' '}
-          <a
-            href="https://www.torproject.org/download/"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#fff', textDecoration: 'underline' }}
-          >
+    <main className="page" style={{ gap: 'var(--space-10)' }}>
+      {/* Tor error banner */}
+      {torStatus && !torOk && (
+        <div className="error-banner">
+          Tor unavailable.{' '}
+          <a href="https://www.torproject.org/download/" target="_blank" rel="noreferrer">
             Install Tor
           </a>
+          {' '}to make calls.
         </div>
       )}
 
-      {/* Logo */}
-      <Logo size={56} variant="dark" />
-
-      {/* Tor status + online state */}
+      {/* Logo + status */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <Logo size={52} variant="dark" />
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <span className={torDotClass} title={torStatus?.error ?? (torConnected ? 'Tor connected' : 'Tor not running')} />
-          <span style={{ fontSize: 'var(--text-xs)', color: torConnected ? 'var(--accent)' : 'var(--status-error)' }}>
-            {torConnected ? 'private' : 'tor unavailable'}
+          <span className={`status-dot ${torOk ? 'status-dot--connected' : 'status-dot--error'}`} />
+          <span className="mono-xs" style={{ color: torOk ? 'var(--accent)' : 'var(--status-error)' }}>
+            {isOnline ? onionAddr.slice(0, 16) + '…' : torOk ? 'private' : 'offline'}
           </span>
         </div>
-
-        {isOnline && onionAddr && (
-          <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--ink-muted)',
-          }}>
-            {onionAddr.slice(0, 16)}…{onionAddr.slice(-6)}
-          </span>
-        )}
       </div>
 
-      {/* Dial area — two-tab DialPad (BY HANDLE + DIRECT demo mode) */}
+      {/* Dial */}
       <DialPad
         onionAddr={onionAddr}
         isOnline={isOnline}
+        torReady={torOk}
         onGoOnline={goOnline}
       />
 
-      {/* Status */}
       {statusMsg && (
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-secondary)' }}>
-          {statusMsg}
-        </span>
+        <span className="mono-xs" style={{ color: 'var(--status-error)' }}>{statusMsg}</span>
       )}
     </main>
   )
