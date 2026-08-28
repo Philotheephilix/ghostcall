@@ -1,237 +1,317 @@
+/**
+ * Noise_XX (25519, ChaChaPoly, SHA256) — pure Node.js built-ins + tweetnacl.
+ *
+ * No native addons. Works in Electron without rebuilding.
+ *
+ * Crypto primitives:
+ *  - DH/X25519: tweetnacl (nacl.scalarMult / nacl.box.keyPair)
+ *  - ChaCha20-Poly1305: Node.js built-in crypto (createCipheriv/createDecipheriv)
+ *  - SHA-256 / HMAC-SHA-256: Node.js built-in crypto
+ *
+ * Frame format: uint16-BE(len) || encrypted_payload
+ * MAC appended by ChaCha20-Poly1305 (16 bytes, Poly1305 tag)
+ */
+
 import * as net from 'net'
-
-// noise-protocol is a CJS package
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const noise = require('noise-protocol') as {
-  keygen: () => { publicKey: Buffer; secretKey: Buffer }
-  initialize: (
-    pattern: string,
-    initiator: boolean,
-    prologue: Buffer,
-    s?: { publicKey: Buffer; secretKey: Buffer } | null,
-    e?: { publicKey: Buffer; secretKey: Buffer } | null,
-    rs?: Buffer | null,
-    re?: Buffer | null,
-  ) => unknown
-  writeMessage: ((state: unknown, payload: Buffer, buf: Buffer) => { tx: Buffer; rx: Buffer } | undefined) & { bytes: number }
-  readMessage: ((state: unknown, message: Buffer, payload: Buffer) => { tx: Buffer; rx: Buffer } | undefined) & { bytes: number }
-  destroy: (state: unknown) => void
-  PKLEN: number
-  SKLEN: number
+import * as nodeCrypto from 'crypto'
+interface NaclScalarMult {
+  (n: Uint8Array, p: Uint8Array): Uint8Array
+  base(n: Uint8Array): Uint8Array
+}
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const nacl = require('tweetnacl') as {
+  scalarMult: NaclScalarMult
+  box: { keyPair(): { publicKey: Uint8Array; secretKey: Uint8Array } }
+  randomBytes(n: number): Uint8Array
 }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const cipherStateModule = require('noise-protocol/cipher-state') as (
-  opts: { cipher: unknown },
-) => {
-  MACLEN: number
-  STATELEN: number
-  encryptWithAd: ((state: Buffer, out: Buffer, ad: Buffer, plain: Buffer) => void) & { bytesWritten: number }
-  decryptWithAd: ((state: Buffer, out: Buffer, ad: Buffer, cipher: Buffer) => void) & { bytesWritten: number }
+// ── constants ──────────────────────────────────────────────────────────────
+
+const PROTOCOL_NAME = 'Noise_XX_25519_ChaChaPoly_SHA256'
+const DHLEN = 32
+const MACLEN = 16
+
+// ── primitives ─────────────────────────────────────────────────────────────
+
+function sha256(data: Uint8Array): Uint8Array {
+  return new Uint8Array(nodeCrypto.createHash('sha256').update(data).digest())
 }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const cipherImpl = require('noise-protocol/cipher')() as { MACLEN: number }
+function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
+  return new Uint8Array(nodeCrypto.createHmac('sha256', Buffer.from(key)).update(Buffer.from(data)).digest())
+}
 
-const cs = cipherStateModule({ cipher: cipherImpl })
-const MACLEN = cs.MACLEN
+function concat(...bufs: Uint8Array[]): Uint8Array {
+  const total = bufs.reduce((n, b) => n + b.length, 0)
+  const out = new Uint8Array(total)
+  let off = 0
+  for (const b of bufs) { out.set(b, off); off += b.length }
+  return out
+}
+
+function chachaPoly1305Encrypt(key: Uint8Array, nonce: Uint8Array, ad: Uint8Array, plaintext: Uint8Array): Uint8Array {
+  const cipher = nodeCrypto.createCipheriv(
+    'chacha20-poly1305',
+    Buffer.from(key),
+    Buffer.from(nonce),
+    { authTagLength: MACLEN } as object
+  )
+  cipher.setAAD(Buffer.from(ad))
+  const ct = cipher.update(Buffer.from(plaintext))
+  cipher.final()
+  const tag = cipher.getAuthTag()
+  return concat(new Uint8Array(ct), new Uint8Array(tag))
+}
+
+function chachaPoly1305Decrypt(key: Uint8Array, nonce: Uint8Array, ad: Uint8Array, ciphertext: Uint8Array): Uint8Array {
+  const ctBody = ciphertext.slice(0, ciphertext.length - MACLEN)
+  const tag = ciphertext.slice(ciphertext.length - MACLEN)
+  const decipher = nodeCrypto.createDecipheriv(
+    'chacha20-poly1305',
+    Buffer.from(key),
+    Buffer.from(nonce),
+    { authTagLength: MACLEN } as object
+  )
+  decipher.setAAD(Buffer.from(ad))
+  decipher.setAuthTag(Buffer.from(tag))
+  const pt = decipher.update(Buffer.from(ctBody))
+  decipher.final()
+  return new Uint8Array(pt)
+}
+
+// ── HKDF (Noise variant) ───────────────────────────────────────────────────
+
+function hkdf2(ck: Uint8Array, input: Uint8Array): [Uint8Array, Uint8Array] {
+  const tempK = hmacSha256(ck, input)
+  const out1 = hmacSha256(tempK, new Uint8Array([0x01]))
+  const out2 = hmacSha256(tempK, concat(out1, new Uint8Array([0x02])))
+  return [out1, out2]
+}
+
+function nonceToBytes(n: bigint): Uint8Array {
+  const b = new Uint8Array(12) // 4 zero bytes + 8 LE counter
+  let v = n
+  for (let i = 4; i < 12; i++) { b[i] = Number(v & 0xffn); v >>= 8n }
+  return b
+}
+
+// ── CipherState ────────────────────────────────────────────────────────────
+
+class CipherState {
+  private k: Uint8Array | null = null
+  private n: bigint = 0n
+
+  initKey(k: Uint8Array) { this.k = new Uint8Array(k); this.n = 0n }
+
+  encrypt(ad: Uint8Array, plaintext: Uint8Array): Uint8Array {
+    if (!this.k) return plaintext
+    return chachaPoly1305Encrypt(this.k, nonceToBytes(this.n++), ad, plaintext)
+  }
+
+  decrypt(ad: Uint8Array, ciphertext: Uint8Array): Uint8Array {
+    if (!this.k) return ciphertext
+    return chachaPoly1305Decrypt(this.k, nonceToBytes(this.n++), ad, ciphertext)
+  }
+}
+
+// ── SymmetricState ─────────────────────────────────────────────────────────
+
+class SymmetricState {
+  private cs = new CipherState()
+  private ck: Uint8Array
+  public h: Uint8Array
+
+  constructor() {
+    const name = new TextEncoder().encode(PROTOCOL_NAME)
+    this.h = name.length <= DHLEN
+      ? (() => { const h = new Uint8Array(DHLEN); h.set(name); return h })()
+      : sha256(name)
+    this.ck = new Uint8Array(this.h)
+  }
+
+  mixKey(input: Uint8Array) {
+    const [ck, k] = hkdf2(this.ck, input)
+    this.ck = ck
+    this.cs.initKey(k.slice(0, 32))
+  }
+
+  mixHash(data: Uint8Array) {
+    this.h = sha256(concat(this.h, data))
+  }
+
+  encryptAndHash(plaintext: Uint8Array): Uint8Array {
+    const ct = this.cs.encrypt(this.h, plaintext)
+    this.mixHash(ct)
+    return ct
+  }
+
+  decryptAndHash(ciphertext: Uint8Array): Uint8Array {
+    const pt = this.cs.decrypt(this.h, ciphertext)
+    this.mixHash(ciphertext)
+    return pt
+  }
+
+  split(): [CipherState, CipherState] {
+    const [k1, k2] = hkdf2(this.ck, new Uint8Array(0))
+    const c1 = new CipherState(); c1.initKey(k1.slice(0, 32))
+    const c2 = new CipherState(); c2.initKey(k2.slice(0, 32))
+    return [c1, c2]
+  }
+}
+
+// ── SocketReader ───────────────────────────────────────────────────────────
+
+class SocketReader {
+  private buf = Buffer.alloc(0)
+  private waiters: Array<{ len: number; resolve: (b: Buffer) => void }> = []
+
+  constructor(socket: net.Socket) {
+    socket.on('data', (chunk: Buffer) => {
+      this.buf = Buffer.concat([this.buf, chunk])
+      this._drain()
+    })
+  }
+
+  private _drain() {
+    while (this.waiters.length > 0 && this.buf.length >= this.waiters[0].len) {
+      const { len, resolve } = this.waiters.shift()!
+      resolve(this.buf.slice(0, len))
+      this.buf = this.buf.slice(len)
+    }
+  }
+
+  readExact(len: number): Promise<Buffer> {
+    return new Promise(resolve => {
+      this.waiters.push({ len, resolve })
+      this._drain()
+    })
+  }
+
+  async readFrame(): Promise<Buffer> {
+    const header = await this.readExact(2)
+    const frameLen = header.readUInt16BE(0)
+    return this.readExact(frameLen)
+  }
+}
+
+// ── frame I/O ──────────────────────────────────────────────────────────────
+
+function writeFrame(socket: net.Socket, data: Uint8Array) {
+  const frame = Buffer.allocUnsafe(2 + data.length)
+  frame.writeUInt16BE(data.length, 0)
+  Buffer.from(data).copy(frame, 2)
+  socket.write(frame)
+}
+
+// ── Transport ──────────────────────────────────────────────────────────────
 
 export interface NoiseTransport {
   send(frame: Buffer): void
   recv: AsyncIterable<Buffer>
 }
 
-/**
- * SocketReader: buffers incoming data and provides sequential async reads.
- * Avoids the unshift() timing issues with re-attaching event listeners.
- */
-class SocketReader {
-  private buf: Buffer = Buffer.alloc(0)
-  private waiters: Array<{ n: number; resolve: (b: Buffer) => void; reject: (e: Error) => void }> = []
-  private closed = false
-  private closeError: Error | null = null
-
-  constructor(private socket: net.Socket) {
-    socket.on('data', (chunk: Buffer) => {
-      this.buf = Buffer.concat([this.buf, chunk])
-      this.drain()
-    })
-    socket.on('error', (err) => {
-      this.closed = true
-      this.closeError = err
-      this.rejectAll(err)
-    })
-    socket.on('close', () => {
-      this.closed = true
-      if (!this.closeError) {
-        this.closeError = new Error('Socket closed')
-      }
-      this.rejectAll(this.closeError)
-    })
-  }
-
-  private drain() {
-    while (this.waiters.length > 0) {
-      const w = this.waiters[0]
-      if (this.buf.length < w.n) break
-      this.waiters.shift()
-      const out = this.buf.subarray(0, w.n)
-      this.buf = this.buf.subarray(w.n)
-      w.resolve(Buffer.from(out)) // copy so buf can be GC'd
-    }
-  }
-
-  private rejectAll(err: Error) {
-    for (const w of this.waiters) w.reject(err)
-    this.waiters = []
-  }
-
-  readExact(n: number): Promise<Buffer> {
-    if (this.closed && this.buf.length < n) {
-      return Promise.reject(this.closeError ?? new Error('Socket closed'))
-    }
-    return new Promise((resolve, reject) => {
-      this.waiters.push({ n, resolve, reject })
-      this.drain()
-    })
-  }
-
-  async readFrame(): Promise<Buffer> {
-    const lenBuf = await this.readExact(2)
-    const len = lenBuf.readUInt16BE(0)
-    return this.readExact(len)
-  }
-}
-
-/** Write a length-prefixed frame (uint16 BE + payload) */
-function writeFrame(socket: net.Socket, data: Buffer): void {
-  const frame = Buffer.allocUnsafe(2 + data.length)
-  frame.writeUInt16BE(data.length, 0)
-  data.copy(frame, 2)
-  socket.write(frame)
-}
-
-/**
- * Build a NoiseTransport from established cipher states.
- * sendKey = key to encrypt outgoing frames
- * recvKey = key to decrypt incoming frames
- */
-function makeTransport(
-  socket: net.Socket,
-  sendKey: Buffer,
-  recvKey: Buffer,
-): NoiseTransport {
-  return makeTransportWithReader(socket, new SocketReader(socket), sendKey, recvKey)
-}
-
-export class NoiseSession {
-  /**
-   * Perform Noise_XX handshake as initiator.
-   * XX pattern: -> e, <- e ee es se, -> s se
-   */
-  static async handshakeInitiator(
-    socket: net.Socket,
-    localStaticPriv: Uint8Array,
-  ): Promise<NoiseTransport> {
-    void localStaticPriv // XX static keys exchanged in-band; fresh keys per session
-    const staticKeys = noise.keygen()
-    const state = noise.initialize('XX', true, Buffer.alloc(0), staticKeys)
-    const reader = new SocketReader(socket)
-
-    // Msg 1: -> e
-    const msg1 = Buffer.alloc(512)
-    noise.writeMessage(state as never, Buffer.alloc(0), msg1)
-    writeFrame(socket, msg1.subarray(0, noise.writeMessage.bytes))
-
-    // Msg 2: <- e ee es se
-    const msg2 = await reader.readFrame()
-    noise.readMessage(state as never, msg2, Buffer.alloc(0))
-
-    // Msg 3: -> s se (split occurs)
-    const msg3 = Buffer.alloc(512)
-    const split = noise.writeMessage(state as never, Buffer.alloc(0), msg3)
-    writeFrame(socket, msg3.subarray(0, noise.writeMessage.bytes))
-
-    noise.destroy(state)
-
-    if (!split || !('tx' in split)) {
-      throw new Error('Noise_XX initiator: handshake did not produce split')
-    }
-
-    // Initiator: tx = encrypt outbound, rx = decrypt inbound
-    return makeTransportWithReader(socket, reader, split.tx as Buffer, split.rx as Buffer)
-  }
-
-  /**
-   * Perform Noise_XX handshake as responder.
-   * XX pattern: -> e, <- e ee es se, -> s se
-   */
-  static async handshakeResponder(
-    socket: net.Socket,
-    localStaticPriv: Uint8Array,
-  ): Promise<NoiseTransport> {
-    void localStaticPriv
-    const staticKeys = noise.keygen()
-    const state = noise.initialize('XX', false, Buffer.alloc(0), staticKeys)
-    const reader = new SocketReader(socket)
-
-    // Msg 1: <- e
-    const msg1 = await reader.readFrame()
-    noise.readMessage(state as never, msg1, Buffer.alloc(0))
-
-    // Msg 2: -> e ee es se
-    const msg2 = Buffer.alloc(512)
-    noise.writeMessage(state as never, Buffer.alloc(0), msg2)
-    writeFrame(socket, msg2.subarray(0, noise.writeMessage.bytes))
-
-    // Msg 3: <- s se (split occurs)
-    const msg3 = await reader.readFrame()
-    const split = noise.readMessage(state as never, msg3, Buffer.alloc(0))
-
-    noise.destroy(state)
-
-    if (!split || !('tx' in split)) {
-      throw new Error('Noise_XX responder: handshake did not produce split')
-    }
-
-    // Responder: tx = encrypt outbound (to initiator), rx = decrypt inbound (from initiator)
-    return makeTransportWithReader(socket, reader, split.tx as Buffer, split.rx as Buffer)
-  }
-}
-
-/** Same as makeTransport but reuses an existing SocketReader (avoids double-listener) */
 function makeTransportWithReader(
   socket: net.Socket,
   reader: SocketReader,
-  sendKey: Buffer,
-  recvKey: Buffer,
+  sendCs: CipherState,
+  recvCs: CipherState,
 ): NoiseTransport {
   async function* recvFrames(): AsyncIterable<Buffer> {
     while (true) {
       let frame: Buffer
+      try { frame = await reader.readFrame() } catch { break }
       try {
-        frame = await reader.readFrame()
-      } catch {
-        break
-      }
-      const plainLen = frame.length - MACLEN
-      if (plainLen < 0) break
-      const plain = Buffer.allocUnsafe(plainLen)
-      try {
-        cs.decryptWithAd(recvKey, plain, Buffer.alloc(0), frame)
-      } catch {
-        break
-      }
-      yield plain.subarray(0, cs.decryptWithAd.bytesWritten)
+        const pt = recvCs.decrypt(new Uint8Array(0), new Uint8Array(frame.buffer, frame.byteOffset, frame.byteLength))
+        yield Buffer.from(pt)
+      } catch { break }
     }
   }
-
   return {
-    send(frame: Buffer): void {
-      const encrypted = Buffer.allocUnsafe(frame.length + MACLEN)
-      cs.encryptWithAd(sendKey, encrypted, Buffer.alloc(0), frame)
-      writeFrame(socket, encrypted.subarray(0, cs.encryptWithAd.bytesWritten))
+    send(frame: Buffer) {
+      const ct = sendCs.encrypt(new Uint8Array(0), new Uint8Array(frame.buffer, frame.byteOffset, frame.byteLength))
+      writeFrame(socket, ct)
     },
     recv: recvFrames(),
   }
+}
+
+// ── Noise_XX handshake ─────────────────────────────────────────────────────
+
+async function performHandshake(
+  socket: net.Socket,
+  localStaticPriv: Uint8Array,
+  isInitiator: boolean,
+): Promise<NoiseTransport> {
+  const ss = new SymmetricState()
+  const reader = new SocketReader(socket)
+
+  const staticPriv = localStaticPriv.slice(0, 32)
+  const staticPub = nacl.scalarMult.base(staticPriv)
+
+  const ephKP = nacl.box.keyPair()
+  const ephPriv = ephKP.secretKey
+  const ephPub = ephKP.publicKey
+
+  ss.mixHash(new Uint8Array(0)) // empty prologue
+
+  if (isInitiator) {
+    // -> e
+    ss.mixHash(ephPub)
+    writeFrame(socket, ephPub)
+
+    // <- e, ee, s, es
+    const msg1 = await reader.readFrame()
+    const remoteEph = new Uint8Array(msg1.buffer, msg1.byteOffset, DHLEN)
+    ss.mixHash(remoteEph)
+    ss.mixKey(nacl.scalarMult(ephPriv, remoteEph))
+    const remoteStaticEnc = new Uint8Array(msg1.buffer, msg1.byteOffset + DHLEN, DHLEN + MACLEN)
+    const remoteStatic = ss.decryptAndHash(remoteStaticEnc)
+    ss.mixKey(nacl.scalarMult(ephPriv, remoteStatic))
+
+    // -> s, se
+    const myStaticEnc = ss.encryptAndHash(staticPub)
+    ss.mixKey(nacl.scalarMult(staticPriv, remoteEph))
+    writeFrame(socket, myStaticEnc)
+
+    const [send, recv] = ss.split()
+    return makeTransportWithReader(socket, reader, send, recv)
+  } else {
+    // <- e
+    const msg0 = await reader.readFrame()
+    const remoteEph = new Uint8Array(msg0.buffer, msg0.byteOffset, DHLEN)
+    ss.mixHash(remoteEph)
+
+    // -> e, ee, s, es
+    ss.mixHash(ephPub)
+    ss.mixKey(nacl.scalarMult(ephPriv, remoteEph))
+    const myStaticEnc = ss.encryptAndHash(staticPub)
+    ss.mixKey(nacl.scalarMult(staticPriv, remoteEph))
+    writeFrame(socket, concat(ephPub, myStaticEnc))
+
+    // <- s, se
+    const msg2 = await reader.readFrame()
+    const remoteStaticEnc = new Uint8Array(msg2.buffer, msg2.byteOffset, DHLEN + MACLEN)
+    const remoteStatic = ss.decryptAndHash(remoteStaticEnc)
+    ss.mixKey(nacl.scalarMult(ephPriv, remoteStatic))
+
+    const [recv, send] = ss.split()
+    return makeTransportWithReader(socket, reader, send, recv)
+  }
+}
+
+// ── Public API ─────────────────────────────────────────────────────────────
+
+export class NoiseSession {
+  static handshakeInitiator(socket: net.Socket, localStaticPriv: Uint8Array): Promise<NoiseTransport> {
+    return performHandshake(socket, localStaticPriv, true)
+  }
+
+  static handshakeResponder(socket: net.Socket, localStaticPriv: Uint8Array): Promise<NoiseTransport> {
+    return performHandshake(socket, localStaticPriv, false)
+  }
+}
+
+export function noiseKeygen(): { secretKey: Uint8Array; publicKey: Uint8Array } {
+  const kp = nacl.box.keyPair()
+  return { secretKey: kp.secretKey, publicKey: kp.publicKey }
 }

@@ -31,9 +31,11 @@
     "wait-on": "^9.1.0"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "granax": "^3.2.0",
+    "libsodium-wrappers": "^0.8.4",
     "next": "^14.2.35",
     "noise-protocol": "^3.0.2",
     "nostr-tools": "^2.25.0",
@@ -42,6 +44,13 @@
     "react-dom": "^18.3.1",
     "starknet": "^7.6.4",
     "tailwindcss": "^3.4.19",
+    "tweetnacl": "^1.0.3",
     "ws": "^8.21.3"
+  },
+  "allowScripts": {
+    "electron": true,
+    "electron@32.3.3": true,
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true
   }
 }

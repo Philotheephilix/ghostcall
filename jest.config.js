@@ -9,7 +9,7 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: 'tsconfig.test.json',
-      diagnostics: { tsConfig: 'tsconfig.test.json' },
+      diagnostics: false,
     }],
     '^.+\\.js$': ['ts-jest', {
       tsconfig: 'tsconfig.test.json',
@@ -18,6 +18,19 @@ module.exports = {
   // Strip .js extensions from imports so jest can resolve .ts files
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    // Resolve @noble subpath exports for node moduleResolution
+    '^@noble/curves/ed25519(\\.js)?$': '<rootDir>/node_modules/@noble/curves/ed25519.js',
+    '^@noble/curves/secp256k1(\\.js)?$': '<rootDir>/node_modules/@noble/curves/secp256k1.js',
+    '^@noble/curves/stark(\\.js)?$': '<rootDir>/node_modules/@noble/curves/stark.js',
+    '^@noble/ciphers/chacha(\\.js)?$': '<rootDir>/node_modules/@noble/ciphers/chacha.js',
+    '^@noble/hashes/sha256$': '<rootDir>/node_modules/@noble/hashes/sha2.js',
+    '^@noble/hashes/sha512$': '<rootDir>/node_modules/@noble/hashes/sha2.js',
+    '^@noble/hashes/([^.]+)$': '<rootDir>/node_modules/@noble/hashes/$1.js',
+    '^@noble/hashes/([^.]+)\\.js$': '<rootDir>/node_modules/@noble/hashes/$1.js',
+    // nostr-tools subpath exports
+    '^nostr-tools/pure$': '<rootDir>/node_modules/nostr-tools/lib/esm/pure.js',
+    '^nostr-tools/nip59$': '<rootDir>/node_modules/nostr-tools/lib/esm/nip59.js',
+    '^nostr-tools/nip44$': '<rootDir>/node_modules/nostr-tools/lib/esm/nip44.js',
   },
   testMatch: [
     '**/__tests__/**/*.test.ts',

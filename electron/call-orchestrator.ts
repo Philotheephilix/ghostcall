@@ -5,8 +5,7 @@ import { onionServer } from './onion-server'
 import { NoiseSession } from './noise-session'
 import { connectToOnion, ONION_ADDR_RE } from './onion-client'
 import { setActiveTransport, clearTransport, isTransportActive, registerAudioIpcHandlers } from './audio-bridge'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const noiseProtocol = require('noise-protocol') as { keygen: () => { secretKey: Buffer; publicKey: Buffer } }
+import { noiseKeygen } from './noise-session'
 
 const ONION_PORT = 7331
 
@@ -119,7 +118,7 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
       const addr = await goOnline()
       // Start waiting for inbound in background
       // Generate fresh noise key for this session
-      const noiseKeys = noiseProtocol.keygen()
+      const noiseKeys = noiseKeygen()
       waitForInboundCall(noiseKeys.secretKey, win).catch((err) => {
         win.webContents.send('call:error', { message: String(err) })
       })
@@ -134,7 +133,7 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
     if (typeof onionAddr !== 'string' || !ONION_ADDR_RE.test(onionAddr)) {
       throw new Error(`Invalid onion address format: ${onionAddr}`)
     }
-    const noiseKeys = noiseProtocol.keygen()
+    const noiseKeys = noiseKeygen()
     await initiateCall(onionAddr, noiseKeys.secretKey, win)
     return { ok: true }
   })
