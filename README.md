@@ -293,3 +293,69 @@ Apache-2.0 — see [LICENSE](LICENSE).
 Built for the [STRK20 Private Sprint](https://strk20.starknet.io/hackathon) — August 14–31, 2026.
 
 > Eighteen days to ship a real privacy app on Starknet mainnet.
+
+---
+
+## Live Contracts (Sepolia Testnet)
+
+Both contracts are deployed and verified on Starknet Sepolia.
+
+| Contract | Address | Explorer |
+|---|---|---|
+| `StealthRegistry` | `0xcaac954e489813c8ce481f72864f16a1723471ee782fabc87431c9f8c4e8e1` | [Voyager](https://sepolia.voyager.online/contract/0xcaac954e489813c8ce481f72864f16a1723471ee782fabc87431c9f8c4e8e1) |
+| `CallLog` | `0x2fbcdaf58ceb28e8007edd37f9d3f2e4be7ddc2d326972124a52aababc1f6ba` | [Voyager](https://sepolia.voyager.online/contract/0x2fbcdaf58ceb28e8007edd37f9d3f2e4be7ddc2d326972124a52aababc1f6ba) |
+
+**Deploy transactions:**
+
+| Contract | Declare TX | Deploy TX |
+|---|---|---|
+| `StealthRegistry` | [`0x2688...1f10`](https://sepolia.voyager.online/tx/0x26881f186029ab10396bfaaec4b0404facbc899738562dda40594abcf531f10) | [`0x3f17...7237`](https://sepolia.voyager.online/tx/0x3f175090b930dd672a8ad1c1993b13d4718bec21ccf386406973db9bfa57237) |
+| `CallLog` | [`0x351a...ac18`](https://sepolia.voyager.online/tx/0x351a646e732d3d82e49e8ff817360fe8901b327ea9536d735ae8849300bac18) | [`0x5d5e...02cb`](https://sepolia.voyager.online/tx/0x5d5e5671a906074c2fc30371606f12bdfbe0e1720ccb55320b8d890c86502cb) |
+
+**Live test transactions:**
+
+| TX | What |
+|---|---|
+| [`0x5fcf...fffe`](https://sepolia.voyager.online/tx/0x5fcfa59cb4dcd496ea78f31d082beb790df77ca3674754b42ce9a9852cfffe) | StealthRegistry `register()` |
+| [`0x2c0f...bfb8`](https://sepolia.voyager.online/tx/0x2c0fab5eb5a2d47aa3cf30e0fe000b026faf93489ef41ef312828e1b8c4bfb8) | CallLog `commit_call()` |
+
+---
+
+## Mainnet Migration
+
+GhostCall is designed for one-command migration from Sepolia to mainnet.
+
+**What changes:**
+
+| Setting | Sepolia | Mainnet |
+|---|---|---|
+| `STARKNET_RPC_URL` | `https://starknet-sepolia...` | `https://starknet-mainnet...` |
+| Contract addresses | Sepolia deploys | Re-deploy to mainnet |
+| STRK20 pool | N/A (testnet only) | `0x040337b1...ffe812a` |
+
+**Migration steps:**
+
+```bash
+# 1. Fund a mainnet account with STRK (for gas + pool deposits)
+
+# 2. Deploy contracts to mainnet
+STARKNET_RPC_URL=https://starknet-mainnet.g.alchemy.com/v2/YOUR_KEY \
+STARKNET_ACCOUNT_ADDRESS=0x... \
+STARKNET_PRIVATE_KEY=0x... \
+npx ts-node scripts/deploy-contracts.ts
+
+# 3. Install STRK20 SDK (requires GitHub Packages auth)
+npm config set @starkware-libs:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken YOUR_GITHUB_PAT
+npm install @starkware-libs/starknet-privacy-sdk
+
+# 4. Register with the STRK20 pool
+npx ts-node scripts/register-strk20-pool.ts
+
+# 5. Update .env with mainnet values + new contract addresses from deployments.json
+
+# 6. Run
+npm run dev
+```
+
+The `sendShieldedPayment()` function automatically uses the full STRK20 SDK path when the package is installed, and falls back to a standard ERC-20 transfer otherwise — so the app works on both testnet and mainnet without code changes.
