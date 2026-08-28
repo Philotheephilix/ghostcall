@@ -74,12 +74,14 @@ async function main(): Promise<void> {
   console.log('    Looked up pkVy:', meta.pkVy.toString(16))
   console.log('    Looked up pkSx:', meta.pkSx.toString(16))
   console.log('    Looked up pkSy:', meta.pkSy.toString(16))
+  console.log('    Looked up nostrPubkey:', meta.nostrPubkey)
 
   assert(meta.pkVx === kp.pkV.x, `pkVx mismatch: got ${meta.pkVx.toString(16)}, expected ${kp.pkV.x.toString(16)}`)
   assert(meta.pkVy === kp.pkV.y, `pkVy mismatch: got ${meta.pkVy.toString(16)}, expected ${kp.pkV.y.toString(16)}`)
   assert(meta.pkSx === kp.pkS.x, `pkSx mismatch: got ${meta.pkSx.toString(16)}, expected ${kp.pkS.x.toString(16)}`)
   assert(meta.pkSy === kp.pkS.y, `pkSy mismatch: got ${meta.pkSy.toString(16)}, expected ${kp.pkS.y.toString(16)}`)
-  console.log('    All pubkey components match.')
+  assert(meta.nostrPubkey.length === 64, `nostrPubkey should be 64 hex chars, got ${meta.nostrPubkey.length}`)
+  console.log('    All pubkey components match (including nostrPubkey).')
 
   // Step 5: Commit a test call (idempotent — skip if already committed)
   const commitment = 0x1234567890abcdef1234567890abcdef12345678n

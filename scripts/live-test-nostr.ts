@@ -1,12 +1,10 @@
 /**
  * Live test: NIP-44/NIP-59 gift-wrap roundtrip via wss://relay.damus.io
  *
- * 1. Generate random Alice and Bob ephemeral Stark scalars
- * 2. Derive Bob's nostr pubkey (via stealthToNostrKeypair(pkV.x))
- * 3. Subscribe Bob to relay
- * 4. Alice builds a call offer for Bob and publishes to relay
- * 5. Wait up to 15s for Bob's subscription to receive the event
- * 6. Parse with Bob's skV and assert payload matches
+ * Validates the PRIVATE key derivation path:
+ * - Bob's Nostr pubkey = stealthToNostrKeypair(bobSkV).pk  (private, mirrors pk_nostr in registry)
+ * - Alice addresses gift-wrap to this pubkey (as retrieved from StealthRegistry in production)
+ * - Bob decrypts using stealthToNostrKeypair(bobSkV).sk    (private, mirrors parseCallOffer)
  */
 
 import {
@@ -17,10 +15,10 @@ import {
   stealthToNostrKeypair,
   CallSignalPayload,
 } from '../renderer/lib/nostr-signal'
-import { ProjectivePoint as StarkPoint, CURVE } from '@scure/starknet'
+import { CURVE } from '@scure/starknet'
 
-const RELAY = 'wss://relay.damus.io'
-const TIMEOUT_MS = 15_000
+const RELAY = process.env.NOSTR_RELAY_URL || 'wss://relay.primal.net'
+const TIMEOUT_MS = 20_000
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -38,23 +36,27 @@ async function main() {
   console.log('=== GhostCall Nostr Live Test ===')
   console.log(`Relay: ${RELAY}`)
 
-  // Step 1: Generate ephemeral keys
+  // Step 1: Generate ephemeral Stark scalars (private viewing keys)
   const aliceSkV = randomStarkSkV()
   const bobSkV = randomStarkSkV()
 
-  // Step 2: Derive Bob's nostr pubkey
-  const bobPkV = StarkPoint.BASE.multiply(bobSkV)
-  const { pk: bobPubHex } = stealthToNostrKeypair(bobPkV.x)
-  console.log(`Bob nostr pubkey: ${bobPubHex.slice(0, 16)}...`)
+  // Step 2: Derive Bob's Nostr pubkey from his PRIVATE skV
+  // In production, this is retrieved from StealthRegistry.pk_nostr
+  // Never derived from the public pkV.x (which would be a privacy leak)
+  const { pk: bobNostrPk } = stealthToNostrKeypair(bobSkV)
+  console.log(`Bob nostr pubkey: ${bobNostrPk.slice(0, 16)}...`)
 
-  // Step 3: Subscribe Bob
+  // Dummy calleePkV (not used for routing since we pass calleeNostrPk explicitly)
+  const calleePkV = { x: 1n, y: 1n }
+
+  // Step 3: Subscribe Bob using his Nostr pubkey
   const received = await new Promise<string>((resolveMsg, rejectMsg) => {
     const timer = setTimeout(() => {
       close()
       rejectMsg(new Error(`Timeout: no event received within ${TIMEOUT_MS}ms`))
     }, TIMEOUT_MS)
 
-    const close = subscribeIncoming(RELAY, bobPubHex, (raw) => {
+    const close = subscribeIncoming(RELAY, bobNostrPk, (raw) => {
       clearTimeout(timer)
       close()
       resolveMsg(raw)
@@ -68,9 +70,9 @@ async function main() {
           callId: '0xdeadbeef',
           callerNoisePubkey: '0xcafebabe',
         }
-        const calleePkV = { x: bobPkV.x, y: bobPkV.y }
-        console.log('Building call offer...')
-        const eventJson = await buildCallOffer(aliceSkV, calleePkV, payload)
+        console.log('Building call offer (private Nostr routing)...')
+        // Pass bobNostrPk explicitly — the production path (from StealthRegistry.pk_nostr)
+        const eventJson = await buildCallOffer(aliceSkV, calleePkV, payload, bobNostrPk)
         console.log('Publishing to relay...')
         await publishToRelay(RELAY, eventJson)
         console.log('Published. Waiting for Bob to receive...')

@@ -7,8 +7,11 @@ pub trait IStealthRegistry<TState> {
         pk_v_y: felt252,
         pk_s_x: felt252,
         pk_s_y: felt252,
+        pk_nostr: felt252,
     );
-    fn get_stealth_meta(self: @TState, handle_hash: felt252) -> (felt252, felt252, felt252, felt252);
+    fn get_stealth_meta(
+        self: @TState, handle_hash: felt252,
+    ) -> (felt252, felt252, felt252, felt252, felt252);
     fn is_registered(self: @TState, handle_hash: felt252) -> bool;
 }
 
@@ -22,6 +25,7 @@ pub mod StealthRegistry {
         pk_v_y: Map<felt252, felt252>,
         pk_s_x: Map<felt252, felt252>,
         pk_s_y: Map<felt252, felt252>,
+        pk_nostr: Map<felt252, felt252>,
         registered: Map<felt252, bool>,
     }
 
@@ -39,6 +43,7 @@ pub mod StealthRegistry {
         pub pk_v_y: felt252,
         pub pk_s_x: felt252,
         pub pk_s_y: felt252,
+        pub pk_nostr: felt252,
     }
 
     #[abi(embed_v0)]
@@ -50,25 +55,28 @@ pub mod StealthRegistry {
             pk_v_y: felt252,
             pk_s_x: felt252,
             pk_s_y: felt252,
+            pk_nostr: felt252,
         ) {
             assert(!self.registered.read(handle_hash), 'handle already taken');
             self.pk_v_x.write(handle_hash, pk_v_x);
             self.pk_v_y.write(handle_hash, pk_v_y);
             self.pk_s_x.write(handle_hash, pk_s_x);
             self.pk_s_y.write(handle_hash, pk_s_y);
+            self.pk_nostr.write(handle_hash, pk_nostr);
             self.registered.write(handle_hash, true);
-            self.emit(Registered { handle_hash, pk_v_x, pk_v_y, pk_s_x, pk_s_y });
+            self.emit(Registered { handle_hash, pk_v_x, pk_v_y, pk_s_x, pk_s_y, pk_nostr });
         }
 
         fn get_stealth_meta(
             self: @ContractState, handle_hash: felt252,
-        ) -> (felt252, felt252, felt252, felt252) {
+        ) -> (felt252, felt252, felt252, felt252, felt252) {
             assert(self.registered.read(handle_hash), 'handle not found');
             (
                 self.pk_v_x.read(handle_hash),
                 self.pk_v_y.read(handle_hash),
                 self.pk_s_x.read(handle_hash),
                 self.pk_s_y.read(handle_hash),
+                self.pk_nostr.read(handle_hash),
             )
         }
 

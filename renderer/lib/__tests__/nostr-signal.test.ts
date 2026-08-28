@@ -36,13 +36,17 @@ test('roundtrip: buildCallOffer → parseCallOffer recovers payload exactly', as
   const calleePkV = starkPkV(calleeSkVBig)
   const callerSkVBig = randomSkVBig()
 
+  // Derive callee's Nostr pubkey from their private skV (mirrors registry-stored pk_nostr)
+  const { pk: calleeNostrPk } = stealthToNostrKeypair(calleeSkVBig)
+
   const payload: CallSignalPayload = {
     onionAddr: 'aaaabbbbccccdddd.onion:7331',
     callId: '0xdeadbeef1234',
     callerNoisePubkey: '0xcafecafe',
   }
 
-  const eventJson = await buildCallOffer(callerSkVBig, calleePkV, payload)
+  // Pass calleeNostrPk explicitly — the correct production path
+  const eventJson = await buildCallOffer(callerSkVBig, calleePkV, payload, calleeNostrPk)
   const parsed = await parseCallOffer(eventJson, calleeSkVBig)
 
   expect(parsed).not.toBeNull()
@@ -59,13 +63,16 @@ test('wrong key: parseCallOffer with wrong key returns null', async () => {
   const callerSkVBig = randomSkVBig()
   const wrongSkVBig = randomSkVBig() // different from callee
 
+  // Derive callee's correct Nostr pubkey from private skV
+  const { pk: calleeNostrPk } = stealthToNostrKeypair(calleeSkVBig)
+
   const payload: CallSignalPayload = {
     onionAddr: 'test.onion:1234',
     callId: '0x1111',
     callerNoisePubkey: '0x2222',
   }
 
-  const eventJson = await buildCallOffer(callerSkVBig, calleePkV, payload)
+  const eventJson = await buildCallOffer(callerSkVBig, calleePkV, payload, calleeNostrPk)
   const result = await parseCallOffer(eventJson, wrongSkVBig)
 
   expect(result).toBeNull()

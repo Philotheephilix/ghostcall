@@ -1,8 +1,9 @@
-import { getPublicKey } from 'nostr-tools/pure'
+import { getPublicKey, generateSecretKey } from 'nostr-tools/pure'
 import * as nip59 from 'nostr-tools/nip59'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { ProjectivePoint as StarkPoint } from '@scure/starknet'
+// secp256k1 curve order — used to normalize private key scalars into valid range
+const SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n
 import WebSocket from 'ws'
 
 export interface CallSignalPayload {
@@ -12,33 +13,55 @@ export interface CallSignalPayload {
 }
 
 /**
- * Derives a deterministic Nostr keypair from a stealth key scalar (bigint).
- * Uses HKDF-SHA256 so the nostr key is always 32 valid bytes.
+ * Derives a deterministic Nostr keypair from a stealth private viewing key scalar.
+ * Uses HKDF-SHA256 to produce a 32-byte Nostr private key from any bigint scalar.
+ *
+ * Privacy: the input MUST be a private scalar (skV), never a public coordinate.
+ * The output pubkey is stored on-chain via StealthRegistry.pk_nostr so callers
+ * can address gift-wrap events without deriving it from public on-chain data.
  */
-export function stealthToNostrKeypair(skV: bigint): { sk: Uint8Array; pk: string } {
+export function stealthToNostrKeypair(skV: bigint): { sk: Uint8Array; pk: string; routingPk: string } {
   const skBytes = bigintToBytes32(skV)
   const enc = new TextEncoder()
   const derived = hkdf(sha256, skBytes, undefined, enc.encode('ghostcall-nostr-key-v1'), 32)
-  const pk = getPublicKey(derived)
-  return { sk: derived, pk }
+  // Normalize to valid secp256k1 scalar range (must be in [1, order-1])
+  const scalar = (BigInt('0x' + Buffer.from(derived).toString('hex')) % SECP256K1_ORDER) || 1n
+  const sk = bigintToBytes32(scalar)
+  // Full secp256k1 pubkey x-coord — used for NIP-44 ECDH encryption (full 256-bit)
+  const pk = getPublicKey(sk)
+  // Routing pubkey for on-chain storage and Nostr p-tag filter:
+  // truncate to 31 bytes (248-bit), guaranteed to fit felt252 (< 2^251).
+  // Both caller and callee apply the same truncation, so they always agree.
+  const routingPk = BigInt('0x' + pk).toString(16).slice(-62).padStart(62, '0')
+  return { sk, pk, routingPk }
 }
 
 /**
  * Build a NIP-59 gift-wrap call offer from caller → callee.
  *
- * The callee's Nostr pubkey is derived from calleePkV.x treated as a scalar
- * (proxy: consistent pubkey only the callee can compute since they know their
- * skV → same pkV.x via EC multiply).
+ * The callee's Nostr pubkey MUST come from the StealthRegistry (stored as pk_nostr).
+ * It is derived from their private skV via stealthToNostrKeypair(skV) — only they
+ * can compute the matching SK for decryption.
+ *
+ * @param callerEphSkV  Caller's ephemeral viewing key scalar (private)
+ * @param calleePkV     Callee's stealth viewing pubkey (used only for type compat, not for routing)
+ * @param payload       Call signal payload to encrypt
+ * @param calleeNostrPk Callee's Nostr pubkey (hex) from StealthRegistry.pk_nostr
  */
 export async function buildCallOffer(
   callerEphSkV: bigint,
   calleePkV: { x: bigint; y: bigint },
   payload: CallSignalPayload,
+  calleeNostrPk?: string,
 ): Promise<string> {
-  // Caller's ephemeral nostr keypair
+  // Caller's ephemeral nostr keypair (derived from private scalar)
   const { sk: callerSk } = stealthToNostrKeypair(callerEphSkV)
-  // Derive callee's nostr pubkey from pkV.x as scalar proxy
-  const { pk: calleePk } = stealthToNostrKeypair(calleePkV.x)
+
+  // Callee Nostr pubkey: prefer the registry-supplied value.
+  // Fallback (for unit tests only, not production): derive from calleePkV.x as scalar proxy.
+  // WARNING: the fallback leaks the callee's routing identity since pkV.x is on-chain public.
+  // In production, calleeNostrPk MUST be provided from StealthRegistry.
+  const calleePk = calleeNostrPk ?? stealthToNostrKeypair(calleePkV.x).pk
 
   const plaintext = JSON.stringify(payload)
 
@@ -57,10 +80,11 @@ export async function buildCallOffer(
 }
 
 /**
- * Parse an incoming gift-wrapped call offer using the recipient's stealth key scalar.
+ * Parse an incoming gift-wrapped call offer using the recipient's private viewing key scalar.
  *
- * The callee derives their nostr keypair the same way the caller addressed them:
- * both use stealthToNostrKeypair(pkV.x) where pkV = mySkV * G (Stark curve).
+ * The callee's Nostr SK is derived via stealthToNostrKeypair(mySkV) — purely private,
+ * never derivable by an on-chain observer since mySkV is never revealed publicly.
+ *
  * Returns null on any error (wrong key, malformed event, etc.).
  */
 export async function parseCallOffer(
@@ -69,10 +93,8 @@ export async function parseCallOffer(
 ): Promise<CallSignalPayload | null> {
   try {
     const giftWrap = JSON.parse(eventJson)
-    // Compute pkV from skV on the Stark curve to get pkV.x
-    const pkVPoint = StarkPoint.BASE.multiply(mySkV)
-    // Derive our nostr keypair the same way the caller derived our pubkey
-    const { sk: myNsk } = stealthToNostrKeypair(pkVPoint.x)
+    // Derive own nostr SK directly from private skV — private and secure
+    const { sk: myNsk } = stealthToNostrKeypair(mySkV)
 
     // Unwrap NIP-59 — returns the rumor (unsigned inner event)
     const rumor = nip59.unwrapEvent(giftWrap, myNsk)
@@ -86,13 +108,23 @@ export async function parseCallOffer(
 /**
  * Publish a serialized Nostr event to a relay via WebSocket.
  * Resolves when the relay ACKs with OK, rejects on error or 8s timeout.
+ * Uses a settled flag to prevent double-reject on concurrent error + timeout.
  */
 export function publishToRelay(relayUrl: string, eventJson: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    let settled = false
+    const settle = (fn: () => void) => {
+      if (!settled) {
+        settled = true
+        clearTimeout(timer)
+        fn()
+      }
+    }
+
     const ws = new WebSocket(relayUrl)
     const timer = setTimeout(() => {
       ws.close()
-      reject(new Error('relay publish timeout'))
+      settle(() => reject(new Error('relay publish timeout')))
     }, 8000)
 
     ws.on('open', () => {
@@ -103,9 +135,8 @@ export function publishToRelay(relayUrl: string, eventJson: string): Promise<voi
       try {
         const msg = JSON.parse(data.toString())
         if (Array.isArray(msg) && msg[0] === 'OK') {
-          clearTimeout(timer)
           ws.close()
-          resolve()
+          settle(() => resolve())
         }
       } catch {
         // ignore parse errors
@@ -113,8 +144,7 @@ export function publishToRelay(relayUrl: string, eventJson: string): Promise<voi
     })
 
     ws.on('error', (err: Error) => {
-      clearTimeout(timer)
-      reject(err)
+      settle(() => reject(err))
     })
   })
 }
@@ -144,6 +174,10 @@ export function subscribeIncoming(
     } catch {
       // ignore parse errors
     }
+  })
+
+  ws.on('error', (err: Error) => {
+    console.error('[GhostCall] subscribeIncoming relay error:', err.message)
   })
 
   return () => {

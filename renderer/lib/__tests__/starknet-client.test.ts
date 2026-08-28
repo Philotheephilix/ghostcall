@@ -57,8 +57,8 @@ jest.mock('starknet', () => {
     }),
     get_stealth_meta: jest.fn(async (...args: unknown[]) => {
       lastGetStealthMetaArgs = args
-      // Return object with numeric keys (starknet.js v7 tuple format)
-      return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444') }
+      // Return object with numeric keys (starknet.js v7 tuple format) — 5 fields: pkVx, pkVy, pkSx, pkSy, pk_nostr
+      return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(32)) }
     }),
     commit_call: jest.fn(async (...args: unknown[]) => {
       lastCommitCallArgs = args
@@ -122,13 +122,13 @@ beforeAll(() => {
 describe('registerHandle', () => {
   const sig = { r: 0xdeadbeefn, s: 0xcafebaben }
 
-  test('constructs calldata with exactly 5 felt252 args', async () => {
+  test('constructs calldata with exactly 6 felt252 args (handle_hash, pkVx, pkVy, pkSx, pkSy, pk_nostr)', async () => {
     const kp = deriveStealthKeypair(sig)
     const txHash = await registerHandle('alice', kp)
 
     expect(txHash).toBe('0xREGISTER_TX')
-    // register(handleHash, pkVx, pkVy, pkSx, pkSy) = 5 args
-    expect(lastRegisterArgs).toHaveLength(5)
+    // register(handleHash, pkVx, pkVy, pkSx, pkSy, pk_nostr) = 6 args
+    expect(lastRegisterArgs).toHaveLength(6)
     // Each arg must be a hex felt252 string
     for (const arg of lastRegisterArgs) {
       expect(typeof arg).toBe('string')
@@ -162,12 +162,14 @@ describe('lookupHandle', () => {
     expect(lastGetStealthMetaArgs[0] as string).toMatch(/^0x[0-9a-f]+$/i)
   })
 
-  test('correctly parses (felt252, felt252, felt252, felt252) return tuple', async () => {
+  test('correctly parses (felt252 x5) return tuple including nostrPubkey', async () => {
     const meta = await lookupHandle('alice')
     expect(meta.pkVx).toBe(BigInt('0x1111'))
     expect(meta.pkVy).toBe(BigInt('0x2222'))
     expect(meta.pkSx).toBe(BigInt('0x3333'))
     expect(meta.pkSy).toBe(BigInt('0x4444'))
+    expect(typeof meta.nostrPubkey).toBe('string')
+    expect(meta.nostrPubkey).toMatch(/^[0-9a-f]{64}$/)
   })
 })
 

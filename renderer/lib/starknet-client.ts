@@ -1,6 +1,7 @@
 import { RpcProvider, Account, Contract, num } from 'starknet'
 import type { StealthKeypair, StealthMeta } from './stealth-keys'
 import { deriveHandleHash } from './stealth-keys'
+import { stealthToNostrKeypair } from './nostr-signal'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const stealthRegistrySierra = require('../../contracts/target/dev/ghostcall_contracts_StealthRegistry.contract_class.json')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -43,6 +44,7 @@ export function getAccount(): Account {
 /**
  * Registers stealth meta-address on-chain.
  * Sends a transaction to StealthRegistry.register().
+ * Includes pk_nostr = stealthToNostrKeypair(skV).pk as a felt252.
  * Returns the transaction hash.
  */
 export async function registerHandle(
@@ -56,12 +58,17 @@ export async function registerHandle(
     deployments.StealthRegistry.address,
     account
   )
+  // Derive the Nostr routing pubkey from the viewing key scalar.
+  // routingPk is 31-byte (248-bit) truncated pubkey, guaranteed to fit felt252.
+  const { routingPk } = stealthToNostrKeypair(kp.skV)
+  const nostrPkFelt = BigInt('0x' + routingPk)
   const res = await contract.register(
     num.toHex(handleHash),
     num.toHex(kp.pkV.x),
     num.toHex(kp.pkV.y),
     num.toHex(kp.pkS.x),
-    num.toHex(kp.pkS.y)
+    num.toHex(kp.pkS.y),
+    num.toHex(nostrPkFelt)
   )
   await requireProvider().waitForTransaction(res.transaction_hash)
   return res.transaction_hash as string
@@ -70,6 +77,7 @@ export async function registerHandle(
 /**
  * Looks up stealth meta-address for a handle.
  * Calls StealthRegistry.get_stealth_meta() (view).
+ * Returns pkVx, pkVy, pkSx, pkSy, and nostrPubkey (hex string).
  */
 export async function lookupHandle(handle: string): Promise<StealthMeta> {
   const handleHash = deriveHandleHash(handle)
@@ -79,14 +87,17 @@ export async function lookupHandle(handle: string): Promise<StealthMeta> {
     requireProvider()
   )
   const result = await contract.get_stealth_meta(num.toHex(handleHash))
-  // starknet.js v7 returns a Result object with numeric string keys '0','1','2','3'
-  // (not a true array), so index explicitly rather than destructuring
+  // starknet.js v7 returns a Result object with numeric string keys '0'..'4'
   const r = result as Record<string | number, bigint>
+  // pk_nostr is stored as felt252; convert back to 32-byte hex pubkey string
+  const nostrFelt = BigInt(r[4])
+  const nostrPubkey = nostrFelt.toString(16).padStart(64, '0')
   return {
     pkVx: BigInt(r[0]),
     pkVy: BigInt(r[1]),
     pkSx: BigInt(r[2]),
     pkSy: BigInt(r[3]),
+    nostrPubkey,
   }
 }
 

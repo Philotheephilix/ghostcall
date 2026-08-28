@@ -17,6 +17,8 @@ export interface StealthMeta {
   pkVy: bigint
   pkSx: bigint
   pkSy: bigint
+  /** Nostr x-only pubkey (hex, 64 chars) derived from skV via HKDF. Stored on-chain as felt252. */
+  nostrPubkey: string
 }
 
 /**
