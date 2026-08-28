@@ -90,7 +90,7 @@ async function fullOnionTest(): Promise<void> {
   const onionAddr = await torManager.addOnion(ONION_PORT)
   console.log(`  Onion address: ${onionAddr}`)
 
-  // Start local TCP server on port 7331
+  // Start local TCP server FIRST (Tor needs it running to route inbound)
   const serverSockets: net.Socket[] = []
   let resolveServerSocket: (s: net.Socket) => void
   const serverSocketPromise = new Promise<net.Socket>((r) => { resolveServerSocket = r })
@@ -100,6 +100,10 @@ async function fullOnionTest(): Promise<void> {
     resolveServerSocket(socket)
   })
   console.log(`  OnionServer listening on 127.0.0.1:${ONION_PORT}`)
+
+  // Wait for onion service to register introduction points on Tor network
+  console.log('  Waiting 20s for onion service to register with Tor network...')
+  await new Promise<void>(r => setTimeout(r, 20000))
 
   // Connect from client through SOCKS5
   console.log('  Connecting via SOCKS5 to onion...')

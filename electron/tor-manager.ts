@@ -14,9 +14,18 @@ export class TorManager {
   private proc: ChildProcess | null = null
   private _running = false
   private activeOnions: Set<string> = new Set()
+  // Persistent control sockets per active onion — closing destroys the service
+  private onionSockets: Map<string, net.Socket> = new Map()
 
   async start(): Promise<void> {
     if (this._running) return
+
+    // If Tor is already running externally (SOCKS5 + control port open), attach to it
+    const alreadyRunning = await this._checkAlreadyRunning()
+    if (alreadyRunning) {
+      this._running = true
+      return
+    }
 
     const torBin = process.env.TOR_BINARY_PATH || this._findTorBinary()
 
@@ -81,6 +90,26 @@ export class TorManager {
       }
     }
     return 'tor' // last resort — let spawn fail with a clear message
+  }
+
+  /**
+   * Check if an external Tor process is already running by probing SOCKS5 + control port.
+   * If both are open and control port is authenticated, mark as running.
+   */
+  private _checkAlreadyRunning(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const s = net.connect(SOCKS_PORT, '127.0.0.1')
+      s.once('connect', () => {
+        s.destroy()
+        // SOCKS5 is open — now verify control port is also up
+        const c = net.connect(CONTROL_PORT, '127.0.0.1')
+        c.once('connect', () => { c.destroy(); resolve(true) })
+        c.once('error', () => resolve(false))
+        setTimeout(() => { c.destroy(); resolve(false) }, 2000)
+      })
+      s.once('error', () => resolve(false))
+      setTimeout(() => { s.destroy(); resolve(false) }, 2000)
+    })
   }
 
   /**
@@ -151,10 +180,10 @@ export class TorManager {
                 const serviceId = line.replace('250-ServiceID=', '').trim()
                 resolved = true
                 this.activeOnions.add(serviceId)
-                // Consume remaining 250 OK
-                // send QUIT
-                socket.write('QUIT\r\n')
-                socket.destroy()
+                // Keep the socket OPEN — Tor destroys onion services when the
+                // creating control connection closes. Store it for DEL_ONION later.
+                this.onionSockets.set(serviceId, socket)
+                // Remove QUIT/destroy — just resolve, socket stays alive
                 resolve(`${serviceId}.onion:${localPort}`)
               } else if (line.startsWith('5') || line.startsWith('4')) {
                 socket.destroy()
@@ -174,48 +203,14 @@ export class TorManager {
   }
 
   async removeOnion(serviceId: string): Promise<void> {
-    if (!this._running) throw new Error('TorManager not running')
-
-    return new Promise((resolve, reject) => {
-      const socket = net.connect(CONTROL_PORT, '127.0.0.1', () => {
-        const cookiePath = path.join(TOR_DATA_DIR, 'control_auth_cookie')
-        let cookie: Buffer
-        try {
-          cookie = fs.readFileSync(cookiePath)
-        } catch (e) {
-          socket.destroy()
-          return reject(new Error(`Cannot read Tor cookie: ${e}`))
-        }
-        const cookieHex = cookie.toString('hex').toUpperCase()
-
-        let buf = ''
-        let step = 0
-
-        socket.on('data', (chunk: Buffer) => {
-          buf += chunk.toString()
-          const parts = buf.split('\r\n')
-          buf = parts.pop() ?? ''
-          for (const line of parts) {
-            if (!line) continue
-            if (step === 0 && line.startsWith('250')) {
-              step = 1
-              socket.write(`DEL_ONION ${serviceId}\r\n`)
-            } else if (step === 1 && line.startsWith('250')) {
-              this.activeOnions.delete(serviceId)
-              socket.write('QUIT\r\n')
-              socket.destroy()
-              resolve()
-            } else if (line.startsWith('5') || line.startsWith('4')) {
-              socket.destroy()
-              reject(new Error(`DEL_ONION failed: ${line}`))
-            }
-          }
-        })
-        socket.on('error', reject)
-        socket.write(`AUTHENTICATE ${cookieHex}\r\n`)
-      })
-      socket.on('error', reject)
-    })
+    this.activeOnions.delete(serviceId)
+    // Close the persistent socket — this sends implicit DEL_ONION to Tor
+    const sock = this.onionSockets.get(serviceId)
+    if (sock) {
+      this.onionSockets.delete(serviceId)
+      try { sock.write('QUIT\r\n') } catch { /* ignore */ }
+      sock.destroy()
+    }
   }
 
   getSocksProxy(): { host: string; port: number } {
@@ -228,6 +223,12 @@ export class TorManager {
 
   stop(): void {
     this._running = false
+    // Close all persistent onion sockets
+    for (const [, sock] of this.onionSockets) {
+      try { sock.destroy() } catch { /* ignore */ }
+    }
+    this.onionSockets.clear()
+    this.activeOnions.clear()
     this.proc?.kill()
     this.proc = null
   }

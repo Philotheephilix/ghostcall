@@ -3,8 +3,12 @@ import { TorManager } from '../tor-manager'
 describe('TorManager', () => {
   test('1. detects when tor is not running and rejects with clear error', async () => {
     const tm = new TorManager()
-    // Override tor binary to a non-existent one
+    // Override tor binary to a non-existent one AND prevent attach-to-existing-tor
+    // by temporarily pointing to an unused port via env (test isolation)
     process.env.TOR_BINARY_PATH = '/nonexistent/tor-binary-that-does-not-exist'
+    // Patch _checkAlreadyRunning to always return false for this test
+    // (avoids false pass when Tor happens to be running on the test machine)
+    ;(tm as any)._checkAlreadyRunning = async () => false
 
     await expect(tm.start()).rejects.toThrow()
 
