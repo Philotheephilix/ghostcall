@@ -2,36 +2,42 @@
 
 import { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
+import DialPad from '../components/DialPad'
 
 export default function Home() {
   const [torStatus, setTorStatus] = useState<{ running: boolean; error?: string } | null>(null)
-  const [handle, setHandle] = useState('')
   const [isOnline, setIsOnline] = useState(false)
   const [onionAddr, setOnionAddr] = useState('')
-  const [isCalling, setIsCalling] = useState(false)
   const [statusMsg, setStatusMsg] = useState('')
 
+  type GhostCall = {
+    getTorStatus?: () => Promise<{ running: boolean; error?: string }>
+    onTorStatus?: (cb: (s: { running: boolean; error?: string }) => void) => void
+    onCallConnected?: (cb: (info: { direction: string; onionAddr?: string }) => void) => void
+    onCallError?: (cb: (err: { message: string }) => void) => void
+    goOnline?: () => Promise<string | { onionAddr?: string }>
+  }
+
   useEffect(() => {
-    const gc = (window as any).ghostcall
+    const gc = (window as Window & { ghostcall?: GhostCall }).ghostcall
     if (!gc) return
 
-    gc.getTorStatus?.().then((s: { running: boolean; error?: string }) => setTorStatus(s))
-    gc.onTorStatus?.((s: { running: boolean; error?: string }) => setTorStatus(s))
+    gc.getTorStatus?.().then((s) => setTorStatus(s))
+    gc.onTorStatus?.((s) => setTorStatus(s))
 
-    gc.onCallConnected?.((info: { direction: string; onionAddr?: string }) => {
-      setIsCalling(false)
-      // Navigate to call screen
+    gc.onCallConnected?.((_info) => {
+      // Navigate to call screen when incoming call connects
       window.location.href = '/call'
     })
 
-    gc.onCallError?.((err: { message: string }) => {
-      setIsCalling(false)
+    gc.onCallError?.((err) => {
       setStatusMsg(`Call failed: ${err.message}`)
     })
   }, [])
 
   async function goOnline() {
-    const gc = (window as any).ghostcall
+    const gc = (window as Window & { ghostcall?: GhostCall }).ghostcall
+    if (!gc?.goOnline) return
     try {
       const result = await gc.goOnline()
       const addr = typeof result === 'string' ? result : result?.onionAddr ?? ''
@@ -39,22 +45,6 @@ export default function Home() {
       setIsOnline(true)
       setStatusMsg('')
     } catch (e) {
-      setStatusMsg(`Error: ${(e as Error).message}`)
-    }
-  }
-
-  async function call() {
-    if (!handle.trim() || !torStatus?.running) return
-    setIsCalling(true)
-    setStatusMsg('')
-    const gc = (window as any).ghostcall
-    try {
-      // Lookup the handle to get onion address
-      const meta = await gc.lookupStealth(handle.trim())
-      const targetOnion = meta?.onionAddr ?? meta?.onion_addr ?? handle.trim()
-      await gc.initiateCall(targetOnion)
-    } catch (e) {
-      setIsCalling(false)
       setStatusMsg(`Error: ${(e as Error).message}`)
     }
   }
@@ -124,41 +114,12 @@ export default function Home() {
         )}
       </div>
 
-      {/* Dial area */}
-      <div style={{
-        width: '100%',
-        maxWidth: 320,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-4)',
-      }}>
-        <input
-          className="input"
-          type="text"
-          placeholder="handle or onion address"
-          value={handle}
-          onChange={e => setHandle(e.target.value)}
-          disabled={isCalling}
-          onKeyDown={e => { if (e.key === 'Enter') call() }}
-        />
-        <button
-          className="btn-primary"
-          onClick={call}
-          disabled={!handle.trim() || isCalling || !torConnected}
-          style={{ width: '100%' }}
-        >
-          {isCalling ? 'Calling…' : 'call'}
-        </button>
-      </div>
-
-      {/* Go online button */}
-      <button
-        className="btn-ghost"
-        onClick={goOnline}
-        disabled={isOnline}
-      >
-        {isOnline ? 'online' : 'go online'}
-      </button>
+      {/* Dial area — two-tab DialPad (BY HANDLE + DIRECT demo mode) */}
+      <DialPad
+        onionAddr={onionAddr}
+        isOnline={isOnline}
+        onGoOnline={goOnline}
+      />
 
       {/* Status */}
       {statusMsg && (

@@ -2,10 +2,44 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
+import { initStarknetClient } from '../renderer/lib/starknet-client'
+import { sendShieldedPayment } from '../renderer/lib/strk20-payment'
+import type { Account } from 'starknet'
+
+// Session state — populated during the call flow:
+//   • starknet:register / starknet:lookup set up the account
+//   • call:initiate stores the callee's stealth address
+interface SessionState {
+  account: Account | null
+  calleeStealthAddr: string
+  viewingKey: bigint
+}
+
+const sessionState: SessionState = {
+  account: null,
+  calleeStealthAddr: '',
+  viewingKey: 0n,
+}
 
 let win: BrowserWindow | null = null
 
 app.whenReady().then(async () => {
+  // Initialise Starknet client from env (no-op if env vars missing — dev mode)
+  if (
+    process.env.STARKNET_ACCOUNT_ADDRESS &&
+    process.env.STARKNET_PRIVATE_KEY &&
+    process.env.STARKNET_RPC_URL
+  ) {
+    initStarknetClient(
+      process.env.STARKNET_RPC_URL,
+      process.env.STARKNET_ACCOUNT_ADDRESS,
+      process.env.STARKNET_PRIVATE_KEY,
+    )
+    // Cache the Account instance for payment use
+    const { getAccount } = await import('../renderer/lib/starknet-client')
+    sessionState.account = getAccount()
+  }
+
   win = new BrowserWindow({
     width: 420,
     height: 700,
@@ -54,4 +88,47 @@ ipcMain.handle('tor:add-onion', async (_e, { port }: { port?: number } = {}) => 
 
 ipcMain.handle('tor:remove-onion', async (_e, { serviceId }: { serviceId: string }) => {
   return torManager.removeOnion(serviceId)
+})
+
+// Starknet identity IPC handlers
+ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) => {
+  const { getAccount, registerHandle } = await import('../renderer/lib/starknet-client')
+  const { deriveStealthKeypair } = await import('../renderer/lib/stealth-keys')
+  const account = getAccount()
+  // Derive keypair from a deterministic seed based on the account address
+  const seed = BigInt(process.env.STARKNET_PRIVATE_KEY ?? '0x1')
+  const sig = { r: seed, s: seed ^ BigInt(process.env.STARKNET_ACCOUNT_ADDRESS ?? '0x2') }
+  const kp = deriveStealthKeypair(sig)
+  sessionState.viewingKey = kp.skV
+  return registerHandle(handle, kp)
+})
+
+ipcMain.handle('starknet:lookup', async (_e, { handle }: { handle: string }) => {
+  const { lookupHandle } = await import('../renderer/lib/starknet-client')
+  const meta = await lookupHandle(handle)
+  // Store the nostr pubkey as a proxy for stealth addr (real stealth addr derived on payment)
+  sessionState.calleeStealthAddr = '0x' + meta.nostrPubkey
+  return meta
+})
+
+ipcMain.handle('starknet:commitCall', async (_e, { callId }: { callId: string }) => {
+  const { commitCall } = await import('../renderer/lib/starknet-client')
+  return commitCall(callId)
+})
+
+// STRK20 payment IPC handler
+ipcMain.handle('strk20:pay', async (_e, { amount }: { amount: string }) => {
+  if (!sessionState.account) {
+    throw new Error('Starknet account not initialised — set STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY, STARKNET_RPC_URL in .env')
+  }
+  if (!sessionState.calleeStealthAddr) {
+    throw new Error('No callee stealth address in session — lookup must be called before payment')
+  }
+  const txHash = await sendShieldedPayment(
+    sessionState.calleeStealthAddr,
+    BigInt(amount),
+    sessionState.account,
+    sessionState.viewingKey,
+  )
+  return txHash
 })
