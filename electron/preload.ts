@@ -1,10 +1,18 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+// Helper: adds a one-use listener and returns a cleanup fn to remove it.
+// Use for events that need cleanup (avoids stacking listeners on re-mount).
+function onIpc(channel: string, cb: (...args: unknown[]) => void): () => void {
+  const handler = (_e: Electron.IpcRendererEvent, ...args: unknown[]) => cb(...args)
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
+}
+
 contextBridge.exposeInMainWorld('ghostcall', {
   // Tor
   getTorStatus: () => ipcRenderer.invoke('tor:status'),
   onTorStatus: (cb: (status: { running: boolean; error?: string }) => void) =>
-    ipcRenderer.on('tor:status-update', (_e, status) => cb(status)),
+    onIpc('tor:status-update', cb as (...args: unknown[]) => void),
 
   // Identity
   registerStealth: (handle: string) =>
@@ -18,19 +26,22 @@ contextBridge.exposeInMainWorld('ghostcall', {
     ipcRenderer.invoke('call:initiate', { onionAddr }),
   hangUp: () => ipcRenderer.invoke('call:hang-up'),
   onCallConnected: (cb: (info: { direction: string; onionAddr?: string }) => void) =>
-    ipcRenderer.on('call:connected', (_e, info) => cb(info)),
+    onIpc('call:connected', cb as (...args: unknown[]) => void),
   onCallError: (cb: (err: { message: string }) => void) =>
-    ipcRenderer.on('call:error', (_e, err) => cb(err)),
+    onIpc('call:error', cb as (...args: unknown[]) => void),
 
   // Audio
   sendAudioFrame: (frame: Buffer) => ipcRenderer.send('audio:outbound-frame', frame),
   onInboundFrame: (cb: (frame: ArrayBuffer) => void) =>
-    ipcRenderer.on('audio:inbound-frame', (_e, frame: Buffer) => cb(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength) as ArrayBuffer)),
+    onIpc('audio:inbound-frame', (frame: unknown) => {
+      const buf = frame as Buffer
+      cb(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)
+    }),
 
   // Signaling
   publishSignal: (payload: string) => ipcRenderer.invoke('nostr:publish', { payload }),
   onIncomingSignal: (cb: (data: string) => void) =>
-    ipcRenderer.on('nostr:incoming', (_e, data) => cb(data)),
+    onIpc('nostr:incoming', cb as (...args: unknown[]) => void),
 
   // Payment
   settlePayment: (amount: string) => ipcRenderer.invoke('strk20:pay', { amount }),

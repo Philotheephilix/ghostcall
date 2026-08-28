@@ -5,6 +5,8 @@ import { onionServer } from './onion-server'
 import { NoiseSession } from './noise-session'
 import { connectToOnion } from './onion-client'
 import { setActiveTransport, clearTransport, registerAudioIpcHandlers } from './audio-bridge'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const noiseProtocol = require('noise-protocol') as { keygen: () => { secretKey: Buffer; publicKey: Buffer } }
 
 const ONION_PORT = 7331
 
@@ -40,6 +42,9 @@ export async function waitForInboundCall(
   noiseStaticPriv: Uint8Array,
   win: BrowserWindow,
 ): Promise<void> {
+  // Skip if already listening (e.g. goOnline called twice without hangUp between)
+  if (onionServer.isListening()) return
+
   return new Promise((resolve, reject) => {
     onionServer.listen(ONION_PORT, async (socket) => {
       try {
@@ -109,7 +114,7 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
       const addr = await goOnline()
       // Start waiting for inbound in background
       // Generate fresh noise key for this session
-      const noiseKeys = require('noise-protocol').keygen() as { secretKey: Buffer }
+      const noiseKeys = noiseProtocol.keygen()
       waitForInboundCall(noiseKeys.secretKey, win).catch((err) => {
         win.webContents.send('call:error', { message: String(err) })
       })
@@ -120,7 +125,7 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
   })
 
   ipcMain.handle('call:initiate', async (_e, { onionAddr }: { onionAddr: string }) => {
-    const noiseKeys = require('noise-protocol').keygen() as { secretKey: Buffer }
+    const noiseKeys = noiseProtocol.keygen()
     await initiateCall(onionAddr, noiseKeys.secretKey, win)
     return { ok: true }
   })

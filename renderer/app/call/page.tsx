@@ -37,6 +37,7 @@ export default function CallPage() {
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      stopCapture()
     }
   }, [])
 
