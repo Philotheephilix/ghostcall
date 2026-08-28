@@ -6,8 +6,9 @@
   "type": "commonjs",
   "license": "Apache-2.0",
   "scripts": {
-    "dev": "concurrently \"next dev renderer --port 3000\" \"wait-on http://localhost:3000 && tsc -p tsconfig.json && cross-env NODE_ENV=development electron .\"",
-    "build": "next build renderer && tsc -p tsconfig.json && electron-builder",
+    "bundle:electron": "esbuild electron/main.ts --bundle --platform=node --target=node18 --outfile=dist/electron/main.js --external:electron --external:@starkware-libs/starknet-privacy-sdk --format=cjs",
+    "dev": "concurrently \"next dev renderer --port 3000\" \"wait-on http://localhost:3000 && npm run bundle:electron && cross-env NODE_ENV=development electron .\"",
+    "build": "next build renderer && npm run bundle:electron && electron-builder",
     "test": "scarb test"
   },
   "keywords": [],
