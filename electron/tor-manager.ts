@@ -97,19 +97,15 @@ export class TorManager {
    * If both are open and control port is authenticated, mark as running.
    */
   private _checkAlreadyRunning(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const s = net.connect(SOCKS_PORT, '127.0.0.1')
-      s.once('connect', () => {
-        s.destroy()
-        // SOCKS5 is open — now verify control port is also up
-        const c = net.connect(CONTROL_PORT, '127.0.0.1')
-        c.once('connect', () => { c.destroy(); resolve(true) })
-        c.once('error', () => resolve(false))
-        setTimeout(() => { c.destroy(); resolve(false) }, 2000)
+    const portOpen = (port: number): Promise<boolean> =>
+      new Promise(resolve => {
+        const s = net.connect(port, '127.0.0.1')
+        s.once('connect', () => { s.destroy(); resolve(true) })
+        s.once('error', () => resolve(false))
+        setTimeout(() => { s.destroy(); resolve(false) }, 2000)
       })
-      s.once('error', () => resolve(false))
-      setTimeout(() => { s.destroy(); resolve(false) }, 2000)
-    })
+    return Promise.all([portOpen(SOCKS_PORT), portOpen(CONTROL_PORT)])
+      .then(([socks, ctrl]) => socks && ctrl)
   }
 
   /**

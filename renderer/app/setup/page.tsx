@@ -1,28 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Logo from '../../components/Logo'
+import { useTorStatus } from '../../hooks/useTorStatus'
 
 export default function SetupPage() {
-  const [torStatus, setTorStatus] = useState<{ running: boolean; error?: string } | null>(null)
+  const torStatus = useTorStatus()
   const [handle, setHandle] = useState('')
   const [txHash, setTxHash] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
   const [isConnecting, setIsConnecting] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
   const [walletConnected, setWalletConnected] = useState(false)
-
-  useEffect(() => {
-    // Poll initial Tor status
-    const gc = (window as any).ghostcall
-    if (gc?.getTorStatus) {
-      gc.getTorStatus().then((s: { running: boolean; error?: string }) => setTorStatus(s))
-    }
-    // Subscribe to live Tor status updates
-    if (gc?.onTorStatus) {
-      gc.onTorStatus((s: { running: boolean; error?: string }) => setTorStatus(s))
-    }
-  }, [])
 
   async function connectWallet() {
     setIsConnecting(true)

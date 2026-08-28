@@ -3,7 +3,7 @@ import { ipcMain } from 'electron'
 import { torManager } from './tor-manager'
 import { onionServer } from './onion-server'
 import { NoiseSession } from './noise-session'
-import { connectToOnion } from './onion-client'
+import { connectToOnion, ONION_ADDR_RE } from './onion-client'
 import { setActiveTransport, clearTransport, isTransportActive, registerAudioIpcHandlers } from './audio-bridge'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const noiseProtocol = require('noise-protocol') as { keygen: () => { secretKey: Buffer; publicKey: Buffer } }
@@ -131,7 +131,7 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('call:initiate', async (_e, { onionAddr }: { onionAddr: string }) => {
     // Validate format before passing to SOCKS5 — prevents injection via renderer input
-    if (typeof onionAddr !== 'string' || !/^[a-z2-7]{56}\.onion:\d{1,5}$/.test(onionAddr)) {
+    if (typeof onionAddr !== 'string' || !ONION_ADDR_RE.test(onionAddr)) {
       throw new Error(`Invalid onion address format: ${onionAddr}`)
     }
     const noiseKeys = noiseProtocol.keygen()

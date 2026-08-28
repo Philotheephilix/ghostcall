@@ -1,5 +1,11 @@
 import * as net from 'net'
 
+/** v3 onion address with port, e.g. "abc...xyz.onion:7331" */
+export const ONION_ADDR_RE = /^[a-z2-7]{56}\.onion:\d{1,5}$/
+
+/** Validates a bare v3 onion hostname (no port) */
+export const ONION_HOST_RE = /^[a-z2-7]{56}\.onion$/
+
 /**
  * Connect to a .onion address through a local Tor SOCKS5 proxy.
  *
@@ -20,8 +26,7 @@ export function connectToOnion(
   if (isNaN(destPort) || destPort < 1 || destPort > 65535) {
     return Promise.reject(new Error(`Invalid port in onionAddr: ${onionAddr}`))
   }
-  // Validate host is a valid v3 onion address (56 base32 chars + ".onion")
-  if (!/^[a-z2-7]{56}\.onion$/.test(host)) {
+  if (!ONION_HOST_RE.test(host)) {
     return Promise.reject(new Error(`Invalid .onion address (must be v3): ${host}`))
   }
 

@@ -93,12 +93,9 @@ ipcMain.handle('tor:remove-onion', async (_e, { serviceId }: { serviceId: string
 // Starknet identity IPC handlers
 ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) => {
   const { getAccount, registerHandle } = await import('../renderer/lib/starknet-client')
-  const { deriveStealthKeypair } = await import('../renderer/lib/stealth-keys')
+  const { deriveStealthKeypairFromPrivKey } = await import('../renderer/lib/stealth-keys')
   const account = getAccount()
-  // Derive keypair from a deterministic seed based on the account address
-  const seed = BigInt(process.env.STARKNET_PRIVATE_KEY ?? '0x1')
-  const sig = { r: seed, s: seed ^ BigInt(process.env.STARKNET_ACCOUNT_ADDRESS ?? '0x2') }
-  const kp = deriveStealthKeypair(sig)
+  const kp = deriveStealthKeypairFromPrivKey(BigInt(process.env.STARKNET_PRIVATE_KEY ?? '0x1'))
   sessionState.viewingKey = kp.skV
   return registerHandle(handle, kp)
 })

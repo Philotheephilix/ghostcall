@@ -121,36 +121,7 @@ function makeTransport(
   sendKey: Buffer,
   recvKey: Buffer,
 ): NoiseTransport {
-  const reader = new SocketReader(socket)
-
-  async function* recvFrames(): AsyncIterable<Buffer> {
-    while (true) {
-      let frame: Buffer
-      try {
-        frame = await reader.readFrame()
-      } catch {
-        break // socket closed
-      }
-      const plainLen = frame.length - MACLEN
-      if (plainLen < 0) break
-      const plain = Buffer.allocUnsafe(plainLen)
-      try {
-        cs.decryptWithAd(recvKey, plain, Buffer.alloc(0), frame)
-      } catch {
-        break
-      }
-      yield plain.subarray(0, cs.decryptWithAd.bytesWritten)
-    }
-  }
-
-  return {
-    send(frame: Buffer): void {
-      const encrypted = Buffer.allocUnsafe(frame.length + MACLEN)
-      cs.encryptWithAd(sendKey, encrypted, Buffer.alloc(0), frame)
-      writeFrame(socket, encrypted.subarray(0, cs.encryptWithAd.bytesWritten))
-    },
-    recv: recvFrames(),
-  }
+  return makeTransportWithReader(socket, new SocketReader(socket), sendKey, recvKey)
 }
 
 export class NoiseSession {

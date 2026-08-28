@@ -2,9 +2,10 @@ import { getPublicKey, generateSecretKey } from 'nostr-tools/pure'
 import * as nip59 from 'nostr-tools/nip59'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
+import { bigintToBytes32 } from './stealth-keys'
+import WebSocket from 'ws'
 // secp256k1 curve order — used to normalize private key scalars into valid range
 const SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n
-import WebSocket from 'ws'
 
 export interface CallSignalPayload {
   onionAddr: string
@@ -52,16 +53,15 @@ export async function buildCallOffer(
   callerEphSkV: bigint,
   calleePkV: { x: bigint; y: bigint },
   payload: CallSignalPayload,
-  calleeNostrPk?: string,
+  calleeNostrPk: string,
 ): Promise<string> {
   // Caller's ephemeral nostr keypair (derived from private scalar)
   const { sk: callerSk } = stealthToNostrKeypair(callerEphSkV)
 
-  // Callee Nostr pubkey: prefer the registry-supplied value.
-  // Fallback (for unit tests only, not production): derive from calleePkV.x as scalar proxy.
-  // WARNING: the fallback leaks the callee's routing identity since pkV.x is on-chain public.
-  // In production, calleeNostrPk MUST be provided from StealthRegistry.
-  const calleePk = calleeNostrPk ?? stealthToNostrKeypair(calleePkV.x).pk
+  if (!calleeNostrPk) {
+    throw new Error('buildCallOffer: calleeNostrPk is required — fetch from StealthRegistry')
+  }
+  const calleePk = calleeNostrPk
 
   const plaintext = JSON.stringify(payload)
 
@@ -185,9 +185,3 @@ export function subscribeIncoming(
   }
 }
 
-// --- internal helpers ---
-
-function bigintToBytes32(n: bigint): Uint8Array {
-  const hex = n.toString(16).padStart(64, '0').slice(-64)
-  return Uint8Array.from(Buffer.from(hex, 'hex'))
-}

@@ -3,16 +3,15 @@
 import { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
 import DialPad from '../components/DialPad'
+import { useTorStatus } from '../hooks/useTorStatus'
 
 export default function Home() {
-  const [torStatus, setTorStatus] = useState<{ running: boolean; error?: string } | null>(null)
+  const torStatus = useTorStatus()
   const [isOnline, setIsOnline] = useState(false)
   const [onionAddr, setOnionAddr] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
 
   type GhostCall = {
-    getTorStatus?: () => Promise<{ running: boolean; error?: string }>
-    onTorStatus?: (cb: (s: { running: boolean; error?: string }) => void) => void
     onCallConnected?: (cb: (info: { direction: string; onionAddr?: string }) => void) => void
     onCallError?: (cb: (err: { message: string }) => void) => void
     goOnline?: () => Promise<string | { onionAddr?: string }>
@@ -21,9 +20,6 @@ export default function Home() {
   useEffect(() => {
     const gc = (window as Window & { ghostcall?: GhostCall }).ghostcall
     if (!gc) return
-
-    gc.getTorStatus?.().then((s) => setTorStatus(s))
-    gc.onTorStatus?.((s) => setTorStatus(s))
 
     gc.onCallConnected?.((_info) => {
       // Navigate to call screen when incoming call connects

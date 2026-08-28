@@ -22,6 +22,15 @@ export interface StealthMeta {
 }
 
 /**
+ * Derives a deterministic stealth keypair from a raw private key scalar.
+ * Used in Node/Electron context where no wallet signature is available.
+ * The key is treated as both r and s halves of a synthetic signature.
+ */
+export function deriveStealthKeypairFromPrivKey(privKey: bigint): StealthKeypair {
+  return deriveStealthKeypair({ r: privKey, s: privKey ^ 0xdeadbeefcafebaben })
+}
+
+/**
  * Derives deterministic stealth keypair from a wallet signature.
  * Uses HKDF-SHA256 to derive two Stark curve private keys.
  * Stark curve pubkeys have coordinates within felt252 range.
@@ -83,7 +92,7 @@ function normPrivKeyToStarkScalar(bytes: Uint8Array): bigint {
   return normalized === 0n ? 1n : normalized
 }
 
-function bigintToBytes32(n: bigint): Uint8Array {
+export function bigintToBytes32(n: bigint): Uint8Array {
   const hex = n.toString(16).padStart(64, '0').slice(-64)
   return Uint8Array.from(Buffer.from(hex, 'hex'))
 }
