@@ -125,6 +125,10 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
   })
 
   ipcMain.handle('call:initiate', async (_e, { onionAddr }: { onionAddr: string }) => {
+    // Validate format before passing to SOCKS5 — prevents injection via renderer input
+    if (typeof onionAddr !== 'string' || !/^[a-z2-7]{56}\.onion:\d{1,5}$/.test(onionAddr)) {
+      throw new Error(`Invalid onion address format: ${onionAddr}`)
+    }
     const noiseKeys = noiseProtocol.keygen()
     await initiateCall(onionAddr, noiseKeys.secretKey, win)
     return { ok: true }

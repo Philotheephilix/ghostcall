@@ -17,8 +17,12 @@ export function connectToOnion(
   }
   const host = onionAddr.slice(0, colonIdx)
   const destPort = parseInt(onionAddr.slice(colonIdx + 1), 10)
-  if (isNaN(destPort)) {
+  if (isNaN(destPort) || destPort < 1 || destPort > 65535) {
     return Promise.reject(new Error(`Invalid port in onionAddr: ${onionAddr}`))
+  }
+  // Validate host is a valid v3 onion address (56 base32 chars + ".onion")
+  if (!/^[a-z2-7]{56}\.onion$/.test(host)) {
+    return Promise.reject(new Error(`Invalid .onion address (must be v3): ${host}`))
   }
 
   return new Promise((resolve, reject) => {
