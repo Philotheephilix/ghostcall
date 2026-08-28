@@ -198,14 +198,18 @@ export class TorManager {
     })
   }
 
+  private _safeClose(sock: net.Socket): void {
+    try { sock.write('QUIT\r\n') } catch { /* ignore */ }
+    try { sock.destroy() } catch { /* ignore */ }
+  }
+
   async removeOnion(serviceId: string): Promise<void> {
     this.activeOnions.delete(serviceId)
     // Close the persistent socket — this sends implicit DEL_ONION to Tor
     const sock = this.onionSockets.get(serviceId)
     if (sock) {
       this.onionSockets.delete(serviceId)
-      try { sock.write('QUIT\r\n') } catch { /* ignore */ }
-      sock.destroy()
+      this._safeClose(sock)
     }
   }
 
@@ -221,7 +225,7 @@ export class TorManager {
     this._running = false
     // Close all persistent onion sockets
     for (const [, sock] of this.onionSockets) {
-      try { sock.destroy() } catch { /* ignore */ }
+      this._safeClose(sock)
     }
     this.onionSockets.clear()
     this.activeOnions.clear()

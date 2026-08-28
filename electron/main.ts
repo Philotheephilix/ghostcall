@@ -114,26 +114,30 @@ ipcMain.handle('starknet:commitCall', async (_e, { callId }: { callId: string })
 })
 
 // Nostr signaling IPC handlers
+const NOSTR_RELAY = process.env.NOSTR_RELAY_URL ?? 'wss://relay.primal.net'
 let nostrUnsubscribe: (() => void) | null = null
+
+function clearNostrSubscription() {
+  nostrUnsubscribe?.()
+  nostrUnsubscribe = null
+}
 
 ipcMain.handle('nostr:publish', async (_e, { payload }: { payload: string }) => {
   const { publishToRelay } = await import('../renderer/lib/nostr-signal')
-  const relay = process.env.NOSTR_RELAY_URL ?? 'wss://relay.primal.net'
-  await publishToRelay(relay, payload)
+  await publishToRelay(NOSTR_RELAY, payload)
 })
 
 ipcMain.handle('nostr:subscribe', async (_e, { myPubHex }: { myPubHex: string }) => {
   const { subscribeIncoming } = await import('../renderer/lib/nostr-signal')
-  const relay = process.env.NOSTR_RELAY_URL ?? 'wss://relay.primal.net'
-  if (nostrUnsubscribe) { nostrUnsubscribe(); nostrUnsubscribe = null }
-  nostrUnsubscribe = subscribeIncoming(relay, myPubHex, (raw: string) => {
+  clearNostrSubscription()
+  nostrUnsubscribe = subscribeIncoming(NOSTR_RELAY, myPubHex, (raw: string) => {
     win?.webContents.send('nostr:incoming', raw)
   })
   return { subscribed: true }
 })
 
 ipcMain.handle('nostr:unsubscribe', async () => {
-  if (nostrUnsubscribe) { nostrUnsubscribe(); nostrUnsubscribe = null }
+  clearNostrSubscription()
 })
 
 // STRK20 payment IPC handler

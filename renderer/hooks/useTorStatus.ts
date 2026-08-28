@@ -6,14 +6,16 @@ interface TorStatus {
   error?: string
 }
 
+interface GhostCallApi {
+  getTorStatus?: () => Promise<TorStatus>
+  onTorStatus?: (cb: (s: TorStatus) => void) => (() => void)
+}
+
 export function useTorStatus(): TorStatus | null {
   const [status, setStatus] = useState<TorStatus | null>(null)
 
   useEffect(() => {
-    const gc = (window as unknown as { ghostcall?: {
-      getTorStatus?: () => Promise<TorStatus>
-      onTorStatus?: (cb: (s: TorStatus) => void) => (() => void)
-    } }).ghostcall
+    const gc = (window as unknown as { ghostcall?: GhostCallApi }).ghostcall
     if (!gc) return
     gc.getTorStatus?.().then(setStatus)
     const cleanup = gc.onTorStatus?.(setStatus)
