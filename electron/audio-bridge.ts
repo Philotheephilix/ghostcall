@@ -20,6 +20,10 @@ export function setActiveTransport(transport: NoiseTransport, wc: WebContents): 
   void pumpInbound(transport, wc)
 }
 
+export function isTransportActive(): boolean {
+  return activeTransport !== null
+}
+
 export function clearTransport(): void {
   activeTransport = null
   activeWebContents = null

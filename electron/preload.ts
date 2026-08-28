@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('ghostcall', {
 
   // Signaling
   publishSignal: (payload: string) => ipcRenderer.invoke('nostr:publish', { payload }),
+  subscribeSignals: (myPubHex: string) => ipcRenderer.invoke('nostr:subscribe', { myPubHex }),
+  unsubscribeSignals: () => ipcRenderer.invoke('nostr:unsubscribe'),
   onIncomingSignal: (cb: (data: string) => void) =>
     onIpc('nostr:incoming', cb as (...args: unknown[]) => void),
 

@@ -80,7 +80,8 @@ async function main(): Promise<void> {
   assert(meta.pkVy === kp.pkV.y, `pkVy mismatch: got ${meta.pkVy.toString(16)}, expected ${kp.pkV.y.toString(16)}`)
   assert(meta.pkSx === kp.pkS.x, `pkSx mismatch: got ${meta.pkSx.toString(16)}, expected ${kp.pkS.x.toString(16)}`)
   assert(meta.pkSy === kp.pkS.y, `pkSy mismatch: got ${meta.pkSy.toString(16)}, expected ${kp.pkS.y.toString(16)}`)
-  assert(meta.nostrPubkey.length === 64, `nostrPubkey should be 64 hex chars, got ${meta.nostrPubkey.length}`)
+  // routingPk is 31-byte (62 hex chars) — felt252 truncated from 32-byte secp256k1 pubkey
+  assert(meta.nostrPubkey.length === 62, `nostrPubkey should be 62 hex chars (31-byte routingPk), got ${meta.nostrPubkey.length}`)
   console.log('    All pubkey components match (including nostrPubkey).')
 
   // Step 5: Commit a test call (idempotent — skip if already committed)

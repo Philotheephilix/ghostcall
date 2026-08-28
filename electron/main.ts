@@ -116,6 +116,29 @@ ipcMain.handle('starknet:commitCall', async (_e, { callId }: { callId: string })
   return commitCall(callId)
 })
 
+// Nostr signaling IPC handlers
+let nostrUnsubscribe: (() => void) | null = null
+
+ipcMain.handle('nostr:publish', async (_e, { payload }: { payload: string }) => {
+  const { publishToRelay } = await import('../renderer/lib/nostr-signal')
+  const relay = process.env.NOSTR_RELAY_URL ?? 'wss://relay.primal.net'
+  await publishToRelay(relay, payload)
+})
+
+ipcMain.handle('nostr:subscribe', async (_e, { myPubHex }: { myPubHex: string }) => {
+  const { subscribeIncoming } = await import('../renderer/lib/nostr-signal')
+  const relay = process.env.NOSTR_RELAY_URL ?? 'wss://relay.primal.net'
+  if (nostrUnsubscribe) { nostrUnsubscribe(); nostrUnsubscribe = null }
+  nostrUnsubscribe = subscribeIncoming(relay, myPubHex, (raw: string) => {
+    win?.webContents.send('nostr:incoming', raw)
+  })
+  return { subscribed: true }
+})
+
+ipcMain.handle('nostr:unsubscribe', async () => {
+  if (nostrUnsubscribe) { nostrUnsubscribe(); nostrUnsubscribe = null }
+})
+
 // STRK20 payment IPC handler
 ipcMain.handle('strk20:pay', async (_e, { amount }: { amount: string }) => {
   if (!sessionState.account) {

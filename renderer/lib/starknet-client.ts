@@ -91,7 +91,8 @@ export async function lookupHandle(handle: string): Promise<StealthMeta> {
   const r = result as Record<string | number, bigint>
   // pk_nostr is stored as felt252; convert back to 32-byte hex pubkey string
   const nostrFelt = BigInt(r[4])
-  const nostrPubkey = nostrFelt.toString(16).padStart(64, '0')
+  // routingPk is stored as 31-byte (62 hex char) felt252 — match stealthToNostrKeypair().routingPk
+  const nostrPubkey = nostrFelt.toString(16).padStart(62, '0')
   return {
     pkVx: BigInt(r[0]),
     pkVy: BigInt(r[1]),

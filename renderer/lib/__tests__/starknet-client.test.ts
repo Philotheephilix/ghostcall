@@ -58,7 +58,8 @@ jest.mock('starknet', () => {
     get_stealth_meta: jest.fn(async (...args: unknown[]) => {
       lastGetStealthMetaArgs = args
       // Return object with numeric keys (starknet.js v7 tuple format) — 5 fields: pkVx, pkVy, pkSx, pkSy, pk_nostr
-      return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(32)) }
+      // routingPk is 31 bytes (62 hex chars) stored as felt252
+      return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)) }
     }),
     commit_call: jest.fn(async (...args: unknown[]) => {
       lastCommitCallArgs = args
@@ -169,7 +170,8 @@ describe('lookupHandle', () => {
     expect(meta.pkSx).toBe(BigInt('0x3333'))
     expect(meta.pkSy).toBe(BigInt('0x4444'))
     expect(typeof meta.nostrPubkey).toBe('string')
-    expect(meta.nostrPubkey).toMatch(/^[0-9a-f]{64}$/)
+    // routingPk is 31-byte (62 hex chars), padded from felt252
+    expect(meta.nostrPubkey).toMatch(/^[0-9a-f]{62}$/)
   })
 })
 

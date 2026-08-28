@@ -4,7 +4,7 @@ import { torManager } from './tor-manager'
 import { onionServer } from './onion-server'
 import { NoiseSession } from './noise-session'
 import { connectToOnion } from './onion-client'
-import { setActiveTransport, clearTransport, registerAudioIpcHandlers } from './audio-bridge'
+import { setActiveTransport, clearTransport, isTransportActive, registerAudioIpcHandlers } from './audio-bridge'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const noiseProtocol = require('noise-protocol') as { keygen: () => { secretKey: Buffer; publicKey: Buffer } }
 
@@ -47,6 +47,11 @@ export async function waitForInboundCall(
 
   return new Promise((resolve, reject) => {
     onionServer.listen(ONION_PORT, async (socket) => {
+      // Reject second inbound connection if already in a call
+      if (isTransportActive()) {
+        socket.destroy()
+        return
+      }
       try {
         const transport = await NoiseSession.handshakeResponder(socket, noiseStaticPriv)
         setActiveTransport(transport, win.webContents)
