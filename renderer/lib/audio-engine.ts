@@ -67,8 +67,10 @@ export function playInboundFrame(opusFrameBuffer: ArrayBuffer): void {
   if (!decoder || !audioContext) return
   const frame = Buffer.from(opusFrameBuffer)
   const pcm16: Buffer = decoder.decode(frame)
-  const pcmFloat = int16ToFloat32(new Int16Array(pcm16.buffer.slice(pcm16.byteOffset, pcm16.byteOffset + pcm16.byteLength)))
-  const audioBuffer = audioContext.createBuffer(CHANNELS, FRAME_SIZE, SAMPLE_RATE)
+  const samples = new Int16Array(pcm16.buffer.slice(pcm16.byteOffset, pcm16.byteOffset + pcm16.byteLength))
+  const pcmFloat = int16ToFloat32(samples)
+  // Use actual decoded sample count — opusscript may return more samples than FRAME_SIZE
+  const audioBuffer = audioContext.createBuffer(CHANNELS, samples.length, SAMPLE_RATE)
   audioBuffer.copyToChannel(pcmFloat as Float32Array<ArrayBuffer>, 0)
   const bufferSource = audioContext.createBufferSource()
   bufferSource.buffer = audioBuffer
