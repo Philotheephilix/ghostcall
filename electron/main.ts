@@ -24,11 +24,17 @@ app.whenReady().then(async () => {
   // Register call IPC handlers
   registerCallIpcHandlers(win)
 
-  // Start Tor (non-blocking)
+  // Start Tor (non-blocking — app works without Tor, calls require it)
   torManager.start().then(() => {
-    console.log('Tor started, SOCKS5 on :9050')
+    console.log('[GhostCall] Tor bootstrapped, SOCKS5 on :9050')
+    win?.webContents.send('tor:status-update', { running: true })
   }).catch((e: unknown) => {
-    console.error('Tor failed to start:', e)
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn('[GhostCall] Tor unavailable:', msg)
+    win?.webContents.send('tor:status-update', {
+      running: false,
+      error: 'Tor is not available. Install Tor (brew install tor) and restart GhostCall.',
+    })
   })
 })
 
