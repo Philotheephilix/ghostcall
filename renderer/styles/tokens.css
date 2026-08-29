@@ -1,120 +1,97 @@
-/* Japandi design tokens — Japanese minimalism × Scandinavian functionality
-   Palette: warm neutrals (washi, birch, stone) + single accent (sage green = Tor active)
-   Typography: clean, airy, generous whitespace
-   Tone: calm, intentional, uncluttered */
+/* Apple HIG — glass materials, system typography, vibrancy */
 
 :root {
-  /* ── Surface ── */
-  --surface-bg:        #F5F2EE;  /* washi paper — warm off-white */
-  --surface-elevated:  #EDE9E3;  /* slightly deeper warm linen */
-  --surface-inset:     #E4DED6;  /* inset / pressed state */
-  --surface-overlay:   rgba(245, 242, 238, 0.92); /* modal/overlay */
+  /* ── System Backgrounds ── */
+  --bg-primary:       #000000;
+  --bg-secondary:     #0a0a0a;
+  --bg-tertiary:      #111111;
 
-  /* ── Ink ── */
-  --ink-primary:       #1C1917;  /* near-black warm — main text */
-  --ink-secondary:     #57534E;  /* warm mid-gray — secondary text */
-  --ink-muted:         #A8A29E;  /* muted — hints, placeholders */
-  --ink-inverse:       #F5F2EE;  /* text on dark surfaces */
+  /* ── Glass Materials — vibrancy layers ── */
+  --glass-thin:       rgba(255, 255, 255, 0.06);
+  --glass-regular:    rgba(255, 255, 255, 0.10);
+  --glass-thick:      rgba(255, 255, 255, 0.15);
+  --glass-chrome:     rgba(255, 255, 255, 0.04);
 
-  /* ── Accent — Sage (Tor active / secure state) ── */
-  --accent:            #4A7C59;  /* muted sage green */
-  --accent-light:      #6B9E78;  /* lighter sage for hover */
-  --accent-subtle:     rgba(74, 124, 89, 0.12); /* tinted bg */
+  --glass-border:     rgba(255, 255, 255, 0.12);
+  --glass-border-mid: rgba(255, 255, 255, 0.08);
+  --glass-border-sub: rgba(255, 255, 255, 0.05);
 
-  /* ── Status ── */
-  --status-connected:  #4A7C59;  /* sage — Tor connected */
-  --status-calling:    #8B6F47;  /* warm amber — ringing */
-  --status-error:      #9B4B4B;  /* muted terracotta — error */
-  --status-idle:       #A8A29E;  /* stone — offline/idle */
+  /* ── System Labels ── */
+  --label-primary:    rgba(255, 255, 255, 1.0);
+  --label-secondary:  rgba(255, 255, 255, 0.6);
+  --label-tertiary:   rgba(255, 255, 255, 0.35);
+  --label-quaternary: rgba(255, 255, 255, 0.18);
 
-  /* ── Border ── */
-  --border-subtle:     rgba(28, 25, 23, 0.08);
-  --border-default:    rgba(28, 25, 23, 0.14);
-  --border-strong:     rgba(28, 25, 23, 0.28);
+  /* ── System Colors ── */
+  --system-green:     #30D158;   /* connected / active */
+  --system-red:       #FF453A;   /* end call / error */
+  --system-blue:      #0A84FF;   /* primary action */
+  --system-orange:    #FF9F0A;   /* warning */
+  --system-gray:      #636366;   /* disabled */
+  --system-gray-2:    #3A3A3C;
+  --system-gray-3:    #2C2C2E;
+  --system-gray-4:    #1C1C1E;
+  --system-gray-5:    #141415;
+  --system-gray-6:    #0D0D0E;
 
-  /* ── Logo color variants ── */
-  --logo-shell:        #1C1917;  /* outer shell stroke on light bg */
-  --logo-mid:          #A8A29E;  /* mid layer */
-  --logo-core:         #4A7C59;  /* inner core = accent */
+  /* ── Typography — SF Pro metrics ── */
+  --font-system: -apple-system, 'SF Pro Text', 'SF Pro Display',
+                 'Helvetica Neue', system-ui, sans-serif;
+  --font-mono:   'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+
+  /* Large Title: 34px 700 */
+  /* Title 1: 28px 700 */
+  /* Title 2: 22px 700 */
+  /* Title 3: 20px 600 */
+  /* Headline: 17px 600 */
+  /* Body: 17px 400 */
+  /* Callout: 16px 400 */
+  /* Subheadline: 15px 400 */
+  /* Footnote: 13px 400 */
+  /* Caption 1: 12px 400 */
+  /* Caption 2: 11px 400 */
+
+  --text-large-title: 34px;
+  --text-title1:      28px;
+  --text-title2:      22px;
+  --text-title3:      20px;
+  --text-headline:    17px;
+  --text-body:        17px;
+  --text-callout:     16px;
+  --text-subhead:     15px;
+  --text-footnote:    13px;
+  --text-caption1:    12px;
+  --text-caption2:    11px;
+
+  /* ── Corner Radius ── */
+  --radius-xs:    4px;
+  --radius-sm:    8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
 
   /* ── Spacing (4pt grid) ── */
-  --space-1:   4px;
-  --space-2:   8px;
-  --space-3:  12px;
-  --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
   --space-16: 64px;
 
-  /* ── Radius ── */
-  --radius-sm:  4px;
-  --radius-md:  8px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-
-  /* ── Typography ── */
-  --font-sans: 'Inter', 'Hiragino Kaku Gothic ProN', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
-
-  --text-xs:   11px;
-  --text-sm:   13px;
-  --text-base: 15px;
-  --text-lg:   18px;
-  --text-xl:   24px;
-  --text-2xl:  32px;
-
-  --leading-tight:  1.25;
-  --leading-normal: 1.5;
-  --leading-loose:  1.8;
-
-  --tracking-tight:  -0.02em;
-  --tracking-normal:  0;
-  --tracking-wide:    0.06em;
-  --tracking-widest:  0.12em;
-
   /* ── Motion ── */
-  --ease-out:    cubic-bezier(0.0, 0.0, 0.2, 1);
-  --ease-in-out: cubic-bezier(0.4, 0.0, 0.6, 1);
-  --duration-fast:   120ms;
-  --duration-base:   200ms;
-  --duration-slow:   350ms;
+  --spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0.05, 0.35, 0.95);
 
-  /* ── Shadow ── */
-  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.06);
-  --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.08);
-  --shadow-lg: 0 8px 24px rgba(28, 25, 23, 0.10);
-}
-
-/* Dark mode — same Japandi warmth, inverted */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface-bg:       #141210;
-    --surface-elevated: #1C1917;
-    --surface-inset:    #232018;
-    --surface-overlay:  rgba(20, 18, 16, 0.94);
-
-    --ink-primary:      #F5F2EE;
-    --ink-secondary:    #A8A29E;
-    --ink-muted:        #57534E;
-    --ink-inverse:      #1C1917;
-
-    --accent:           #6B9E78;
-    --accent-light:     #89BB96;
-    --accent-subtle:    rgba(107, 158, 120, 0.12);
-
-    --logo-shell:       #F5F2EE;
-    --logo-mid:         #57534E;
-    --logo-core:        #6B9E78;
-
-    --border-subtle:    rgba(245, 242, 238, 0.06);
-    --border-default:   rgba(245, 242, 238, 0.10);
-    --border-strong:    rgba(245, 242, 238, 0.20);
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.20);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.28);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.36);
-  }
+  /* ── Shadows (elevation) ── */
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.4),  0 0 0 0.5px rgba(255,255,255,0.05);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.5),  0 0 0 0.5px rgba(255,255,255,0.07);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.6),  0 0 0 0.5px rgba(255,255,255,0.08);
+  --shadow-xl:  0 16px 48px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.09);
 }

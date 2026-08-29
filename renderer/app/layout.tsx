@@ -1,8 +1,10 @@
 import './globals.css'
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="bg-black text-white">
-      <body className="min-h-screen flex flex-col">{children}</body>
+    <html lang="en" style={{ background: '#000' }}>
+      <body style={{ margin: 0, minHeight: '100vh', background: '#000', color: '#fff' }}>
+        {children}
+      </body>
     </html>
   )
 }

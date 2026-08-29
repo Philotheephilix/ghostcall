@@ -49,12 +49,10 @@ export default function CallScreen() {
     setSettleMsg('')
     try {
       const result = await (window as any).ghostcall?.settlePayment?.(strkAmount.trim())
-      setSettleMsg(`tx ${String(result).slice(0, 10)}…`)
+      setSettleMsg(String(result).slice(0, 20) + '…')
     } catch (e) {
       setSettleMsg((e as Error).message)
-    } finally {
-      setSettling(false)
-    }
+    } finally { setSettling(false) }
   }
 
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
@@ -65,41 +63,56 @@ export default function CallScreen() {
 
   if (showSettle) {
     return (
-      <main className="page" style={{ gap: 'var(--space-6)' }}>
-        <div className="card" style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-            <span className="label">Settle</span>
-            <span className="mono-xs">{mm}:{ss}</span>
-          </div>
-          <div className="form-stack">
+      <main className="page" style={{ gap: 32 }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 13, color: 'var(--label-tertiary)', marginBottom: 4 }}>Call ended</p>
+          <p style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.4 }}>{mm}:{ss}</p>
+        </div>
+
+        <div className="glass-card" style={{ width: '100%', maxWidth: 340, padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '20px 20px 0' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 12 }}>
+              Settle Payment
+            </p>
             <input
-              className="input"
+              className="input-glass"
               type="text"
-              placeholder={suggested || 'Amount in STRK base units'}
+              placeholder={suggested || 'STRK amount (base units)'}
               value={strkAmount}
               onChange={e => setStrkAmount(e.target.value)}
               disabled={settling}
-              onKeyDown={e => { if (e.key === 'Enter') settlePayment() }}
+              onKeyDown={e => e.key === 'Enter' && settlePayment()}
             />
-            {suggested && !strkAmount && (
-              <button
-                className="btn-ghost"
-                style={{ fontSize: 'var(--text-xs)' }}
-                onClick={() => setStrkAmount(suggested)}
-              >
-                {(Number(suggested) / 1e18).toFixed(1)} STRK suggested
-              </button>
-            )}
+          </div>
+          {suggested && !strkAmount && (
+            <button
+              className="btn-text"
+              style={{ padding: '8px 20px', fontSize: 13 }}
+              onClick={() => setStrkAmount(suggested)}
+            >
+              Use suggested · {(Number(suggested) / 1e18).toFixed(1)} STRK
+            </button>
+          )}
+          <div style={{ padding: '10px 20px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
               className="btn-primary"
               onClick={settlePayment}
               disabled={!strkAmount.trim() || settling}
             >
-              {settling ? 'Settling…' : 'Pay'}
+              {settling ? 'Paying…' : 'Pay with STRK20'}
             </button>
-            {settleMsg && <span className="mono-xs">{settleMsg}</span>}
+            {settleMsg && (
+              <p style={{ fontSize: 12, color: 'var(--system-green)', fontFamily: 'var(--font-mono)' }}>
+                ✓ {settleMsg}
+              </p>
+            )}
           </div>
-          <button className="btn-ghost" onClick={() => { window.location.href = '/' }}>
+          <div className="divider" />
+          <button
+            className="btn-text"
+            style={{ width: '100%', padding: '14px', color: 'var(--label-secondary)' }}
+            onClick={() => { window.location.href = '/' }}
+          >
             Skip
           </button>
         </div>
@@ -108,28 +121,69 @@ export default function CallScreen() {
   }
 
   return (
-    <main className="page" style={{ gap: 'var(--space-10)' }}>
-      {/* Timer — the signature element: oversized mono, breathing room */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)' }}>
+    <main className="page" style={{ gap: 0 }}>
+      {/* Green ambient glow */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'radial-gradient(ellipse 80% 50% at 50% 30%, rgba(48,209,88,0.05) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Timer — dominant */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 64 }}>
         <span className="call-timer">{mm}:{ss}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <span className="status-dot status-dot--connected" />
-          <span className="mono-xs" style={{ color: 'var(--accent)' }}>Tor · Noise_XX</span>
+        <div className="status-pill status-pill--connected">
+          <span className="dot" />
+          <span>Tor · Noise_XX</span>
         </div>
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-        <button
-          className="btn-ghost"
-          onClick={toggleMute}
-          style={{ width: 120 }}
-        >
-          {isMuted ? 'Unmute' : 'Mute'}
-        </button>
-        <button className="btn-danger" onClick={endCall} style={{ width: 120 }}>
-          End call
-        </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+        {/* Mute — glass circle */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={toggleMute}
+            style={{
+              width: 64, height: 64,
+              borderRadius: '50%',
+              background: isMuted ? 'var(--system-gray-3)' : 'var(--glass-regular)',
+              border: `0.5px solid ${isMuted ? 'var(--glass-border)' : 'var(--glass-border-mid)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'background 150ms',
+              backdropFilter: 'blur(20px)',
+              fontSize: 22,
+            }}
+          >
+            {isMuted ? '🔇' : '🎙️'}
+          </button>
+          <span style={{ fontSize: 11, color: 'var(--label-tertiary)' }}>
+            {isMuted ? 'Muted' : 'Mute'}
+          </span>
+        </div>
+
+        {/* End call — red circle, bigger */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={endCall}
+            style={{
+              width: 72, height: 72,
+              borderRadius: '50%',
+              background: 'var(--system-red)',
+              border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: 24,
+              boxShadow: '0 4px 24px rgba(255,69,58,0.4)',
+              transition: 'transform 80ms, opacity 80ms',
+            }}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.93)')}
+            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            📵
+          </button>
+          <span style={{ fontSize: 11, color: 'var(--label-tertiary)' }}>End</span>
+        </div>
       </div>
     </main>
   )

@@ -18,15 +18,11 @@ export default function SetupPage() {
     setStatusMsg('')
     try {
       const starknet = (window as any).starknet
-      if (starknet?.enable) {
-        await starknet.enable()
-      }
+      if (starknet?.enable) await starknet.enable()
       setWalletConnected(true)
     } catch (e) {
       setStatusMsg((e as Error).message)
-    } finally {
-      setIsConnecting(false)
-    }
+    } finally { setIsConnecting(false) }
   }
 
   async function register() {
@@ -41,73 +37,91 @@ export default function SetupPage() {
       setTxHash(hash)
     } catch (e) {
       setStatusMsg((e as Error).message)
-    } finally {
-      setIsRegistering(false)
-    }
+    } finally { setIsRegistering(false) }
   }
 
   const torOk = torStatus?.running === true
 
   return (
-    <main className="page" style={{ gap: 'var(--space-8)' }}>
+    <main className="page" style={{ gap: 40 }}>
       {/* Identity */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)' }}>
-        <Logo size={64} variant="dark" />
-        <span className="wordmark">ghostcall</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <Logo size={72} glowColor={torOk ? 'rgba(48,209,88,0.8)' : 'rgba(255,255,255,0.15)'} />
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: -0.8, lineHeight: 1.05 }}>
+            GhostCall
+          </h1>
+          <p style={{ fontSize: 15, color: 'var(--label-tertiary)', marginTop: 6 }}>
+            Set up your private identity
+          </p>
+        </div>
       </div>
 
       {/* Setup card */}
-      <div className="card" style={{ width: '100%', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      <div className="glass-card" style={{ width: '100%', maxWidth: 360, padding: 0, overflow: 'hidden' }}>
         {/* Step 1 */}
-        <div className="form-stack">
-          <span className="label">Connect wallet</span>
+        <div style={{ padding: '20px 20px 16px' }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>
+            Step 1
+          </p>
           <button
-            className="btn-primary"
+            className={walletConnected ? 'btn-secondary' : 'btn-primary'}
             onClick={connectWallet}
             disabled={isConnecting || walletConnected}
           >
-            {walletConnected ? 'Connected' : isConnecting ? 'Connecting…' : 'Connect'}
+            {walletConnected ? '✓  Wallet connected' : isConnecting ? 'Connecting…' : 'Connect Wallet'}
           </button>
         </div>
 
         <div className="divider" />
 
         {/* Step 2 */}
-        <div className="form-stack">
-          <span className="label">Choose a handle</span>
+        <div style={{ padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            Step 2
+          </p>
           <input
-            className="input"
+            className="input-glass"
             type="text"
-            placeholder="alice"
+            placeholder="Choose a handle"
             value={handle}
             onChange={e => setHandle(e.target.value)}
             disabled={!walletConnected || isRegistering}
-            onKeyDown={e => { if (e.key === 'Enter') register() }}
+            onKeyDown={e => e.key === 'Enter' && register()}
           />
           <button
             className="btn-primary"
             onClick={register}
             disabled={!walletConnected || !handle.trim() || isRegistering}
           >
-            {isRegistering ? 'Registering…' : 'Register on-chain'}
+            {isRegistering ? 'Registering…' : 'Register on Starknet'}
           </button>
         </div>
 
         {/* Feedback */}
         {(statusMsg || txHash) && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
-            {statusMsg && <span className="mono-xs" style={{ color: 'var(--status-error)' }}>{statusMsg}</span>}
-            {txHash && <span className="mono-xs">tx {txHash.slice(0, 10)}…{txHash.slice(-6)}</span>}
-          </div>
+          <>
+            <div className="divider" />
+            <div style={{ padding: '10px 20px 14px' }}>
+              {statusMsg && (
+                <p style={{ fontSize: 12, color: 'var(--system-red)', fontFamily: 'var(--font-mono)' }}>
+                  {statusMsg}
+                </p>
+              )}
+              {txHash && (
+                <p style={{ fontSize: 12, color: 'var(--system-green)', fontFamily: 'var(--font-mono)' }}>
+                  ✓ tx {txHash.slice(0, 10)}…{txHash.slice(-8)}
+                </p>
+              )}
+            </div>
+          </>
         )}
       </div>
 
-      {/* Tor pill */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-        <span className={`status-dot ${torOk ? 'status-dot--connected' : 'status-dot--error'}`} />
-        <span className="mono-xs" style={{ color: torOk ? 'var(--accent)' : 'var(--status-error)' }}>
-          {torOk ? 'Tor connected' : 'Tor unavailable'}
-        </span>
+      {/* Tor status */}
+      <div className={`status-pill ${torOk ? 'status-pill--connected' : 'status-pill--offline'}`}>
+        <span className="dot" />
+        <span>{torOk ? 'Tor connected' : 'Tor unavailable'}</span>
       </div>
     </main>
   )

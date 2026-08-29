@@ -33,40 +33,68 @@ export default function Home() {
 
   const torOk = torStatus?.running === true
 
+  const pillClass = torOk
+    ? 'status-pill status-pill--connected'
+    : torStatus === null
+    ? 'status-pill status-pill--offline'
+    : 'status-pill status-pill--error'
+
+  const pillLabel = torOk
+    ? isOnline ? onionAddr.slice(0, 14) + '…' : 'Private'
+    : torStatus === null ? 'Connecting…' : 'Tor unavailable'
+
   return (
-    <main className="page" style={{ gap: 'var(--space-10)' }}>
-      {/* Tor error banner */}
-      {torStatus && !torOk && (
-        <div className="error-banner">
-          Tor unavailable.{' '}
-          <a href="https://www.torproject.org/download/" target="_blank" rel="noreferrer">
-            Install Tor
-          </a>
-          {' '}to make calls.
-        </div>
+    <main className="page" style={{ gap: 0 }}>
+      {/* Ambient top glow when connected */}
+      {torOk && (
+        <div style={{
+          position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+          width: 300, height: 200,
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(48,209,88,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
       )}
 
-      {/* Logo + status */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
-        <Logo size={52} variant="dark" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <span className={`status-dot ${torOk ? 'status-dot--connected' : 'status-dot--error'}`} />
-          <span className="mono-xs" style={{ color: torOk ? 'var(--accent)' : 'var(--status-error)' }}>
-            {isOnline ? onionAddr.slice(0, 16) + '…' : torOk ? 'private' : 'offline'}
-          </span>
+      {/* Top section */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, marginBottom: 48 }}>
+        <Logo size={60} glowColor={torOk ? 'rgba(48,209,88,0.8)' : 'rgba(255,255,255,0.2)'} />
+
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{
+            fontSize: 28, fontWeight: 700, letterSpacing: -0.6,
+            color: 'var(--label-primary)', lineHeight: 1.1, marginBottom: 4,
+          }}>
+            GhostCall
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--label-tertiary)', letterSpacing: 0 }}>
+            Private · Untraceable · Trustless
+          </p>
+        </div>
+
+        {/* Tor status pill */}
+        <div className={pillClass}>
+          <span className="dot" />
+          <span>{pillLabel}</span>
         </div>
       </div>
 
-      {/* Dial */}
-      <DialPad
-        onionAddr={onionAddr}
-        isOnline={isOnline}
-        torReady={torOk}
-        onGoOnline={goOnline}
-      />
+      {/* Glass dial card */}
+      <div className="glass-card" style={{ width: '100%', maxWidth: 360, padding: 0, overflow: 'hidden' }}>
+        <DialPad
+          onionAddr={onionAddr}
+          isOnline={isOnline}
+          torReady={torOk}
+          onGoOnline={goOnline}
+        />
+      </div>
 
       {statusMsg && (
-        <span className="mono-xs" style={{ color: 'var(--status-error)' }}>{statusMsg}</span>
+        <p style={{
+          marginTop: 16, fontSize: 12, color: 'var(--system-red)',
+          fontFamily: 'var(--font-mono)', textAlign: 'center', maxWidth: 320,
+        }}>
+          {statusMsg}
+        </p>
       )}
     </main>
   )
