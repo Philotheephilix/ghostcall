@@ -1,12 +1,13 @@
 /**
- * Noise_XX (25519, ChaChaPoly, SHA256) — pure Node.js built-ins + tweetnacl.
+ * Noise_XX (25519, ChaChaPoly, SHA256) — pure-JS, works in Electron 32 (Node v20).
  *
- * No native addons. Works in Electron without rebuilding.
+ * Electron 32 ships Node v20.18.1 with an OpenSSL build that does NOT expose
+ * chacha20-poly1305 via crypto.createCipheriv. We use @noble/ciphers instead.
  *
  * Crypto primitives:
  *  - DH/X25519: tweetnacl (nacl.scalarMult / nacl.box.keyPair)
- *  - ChaCha20-Poly1305: Node.js built-in crypto (createCipheriv/createDecipheriv)
- *  - SHA-256 / HMAC-SHA-256: Node.js built-in crypto
+ *  - ChaCha20-Poly1305: @noble/ciphers/chacha.js (pure JS, no native)
+ *  - SHA-256 / HMAC-SHA-256: Node.js built-in crypto (available in all versions)
  *
  * Frame format: uint16-BE(len) || encrypted_payload
  * MAC appended by ChaCha20-Poly1305 (16 bytes, Poly1305 tag)
@@ -14,6 +15,13 @@
 
 import * as net from 'net'
 import * as nodeCrypto from 'crypto'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { chacha20poly1305 } = require('@noble/ciphers/chacha.js') as {
+  chacha20poly1305: (key: Uint8Array, nonce: Uint8Array, aad?: Uint8Array) => {
+    encrypt(plaintext: Uint8Array): Uint8Array
+    decrypt(ciphertext: Uint8Array): Uint8Array
+  }
+}
 interface NaclScalarMult {
   (n: Uint8Array, p: Uint8Array): Uint8Array
   base(n: Uint8Array): Uint8Array
@@ -50,33 +58,12 @@ function concat(...bufs: Uint8Array[]): Uint8Array {
 }
 
 function chachaPoly1305Encrypt(key: Uint8Array, nonce: Uint8Array, ad: Uint8Array, plaintext: Uint8Array): Uint8Array {
-  const cipher = nodeCrypto.createCipheriv(
-    'chacha20-poly1305',
-    Buffer.from(key),
-    Buffer.from(nonce),
-    { authTagLength: MACLEN } as object
-  )
-  cipher.setAAD(Buffer.from(ad))
-  const ct = cipher.update(Buffer.from(plaintext))
-  cipher.final()
-  const tag = cipher.getAuthTag()
-  return concat(new Uint8Array(ct), new Uint8Array(tag))
+  // @noble/ciphers: encrypt returns ciphertext + 16-byte Poly1305 tag appended
+  return chacha20poly1305(key, nonce, ad.length > 0 ? ad : undefined).encrypt(plaintext)
 }
 
 function chachaPoly1305Decrypt(key: Uint8Array, nonce: Uint8Array, ad: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  const ctBody = ciphertext.slice(0, ciphertext.length - MACLEN)
-  const tag = ciphertext.slice(ciphertext.length - MACLEN)
-  const decipher = nodeCrypto.createDecipheriv(
-    'chacha20-poly1305',
-    Buffer.from(key),
-    Buffer.from(nonce),
-    { authTagLength: MACLEN } as object
-  )
-  decipher.setAAD(Buffer.from(ad))
-  decipher.setAuthTag(Buffer.from(tag))
-  const pt = decipher.update(Buffer.from(ctBody))
-  decipher.final()
-  return new Uint8Array(pt)
+  return chacha20poly1305(key, nonce, ad.length > 0 ? ad : undefined).decrypt(ciphertext)
 }
 
 // ── HKDF (Noise variant) ───────────────────────────────────────────────────
