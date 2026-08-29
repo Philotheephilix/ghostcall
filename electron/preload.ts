@@ -34,8 +34,15 @@ contextBridge.exposeInMainWorld('ghostcall', {
   sendAudioFrame: (frame: Buffer) => ipcRenderer.send('audio:outbound-frame', frame),
   onInboundFrame: (cb: (frame: ArrayBuffer) => void) =>
     onIpc('audio:inbound-frame', (frame: unknown) => {
-      const buf = frame as Buffer
-      cb(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)
+      // Electron IPC delivers a real ArrayBuffer (or a view) — normalize to a clean ArrayBuffer
+      if (frame instanceof ArrayBuffer) {
+        cb(frame)
+      } else if (ArrayBuffer.isView(frame)) {
+        const v = frame as ArrayBufferView
+        cb(v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength) as ArrayBuffer)
+      } else {
+        cb(frame as ArrayBuffer)
+      }
     }),
 
   // Signaling

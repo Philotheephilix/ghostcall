@@ -64,7 +64,7 @@ Object.defineProperty(global, 'window', {
 
 import { startCapture, stopCapture, setMuted, playInboundFrame } from '../audio-engine'
 
-const FRAME_SIZE = 320
+const FRAME_SIZE = 256   // ScriptProcessor buffer size (power-of-2); Opus frames are 320 in the bridge
 const CHANNELS = 1
 const SAMPLE_RATE = 16000
 

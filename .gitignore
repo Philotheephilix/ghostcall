@@ -11,3 +11,10 @@ docs/
 out/
 skills-lock.json
 screenshots/
+
+# Tooling / local agent config — not part of the app
+.claude/
+.agents/
+
+# Hackathon registry fork — a separate git repo, cloned here for the PR workflow
+strk20-hackathon/

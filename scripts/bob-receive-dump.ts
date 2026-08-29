@@ -17,7 +17,7 @@ import { NoiseSession, noiseKeygen } from '../electron/noise-session'
 const OpusScript = require('opusscript')
 
 const SAMPLE_RATE = 16000
-const FRAME_SIZE = 320
+const FRAME_SIZE = 320   // 20ms Opus frame — must match Alice's OPUS_FRAME
 const CHANNELS = 1
 const OUTPUT_WAV = '/Users/I740422/projects/stark/screenshots/ghostcall-dump.wav'
 const ONION_PORT = 7331

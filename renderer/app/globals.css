@@ -273,3 +273,8 @@
   height: 0.5px;
   background: var(--glass-border-sub);
 }
+
+/* ── Utility: glass hover ── */
+.hover\:bg-glass-thin:hover {
+  background: var(--glass-thin) !important;
+}

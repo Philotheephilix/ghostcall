@@ -2,18 +2,27 @@ import type { WebContents } from 'electron'
 import type { NoiseTransport } from './noise-session'
 import { ipcMain } from 'electron'
 
-// Opus codec runs in Node (main process) — avoids WASM sync-fetch issue in Chromium renderer
+// Opus codec in main process (Node) — avoids Chromium WASM sync-fetch restriction.
+// Uses the asm.js (nasm) build — pure JavaScript, no .wasm file needed.
+// Pre-load nasm into the require cache so opusscript never tries to load the .wasm file.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const nasmPath = require.resolve('opusscript/build/opusscript_native_nasm.js')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const wasmPath = require.resolve('opusscript/build/opusscript_native_wasm.js')
+// Make the wasm require path return the nasm module instead
+require.cache[wasmPath] = require.cache[nasmPath]
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const OpusScript = require('opusscript') as {
   new(sr: number, ch: number, app?: number): { encode(pcm: Buffer, frameSize: number): Buffer; decode(data: Buffer): Buffer }
   Application: { VOIP: number }
 }
 
+// 16kHz, 320-sample Opus frames (20ms) — lowest-latency valid Opus frame size.
+// ScriptProcessor sends 256-sample buffers; we accumulate and encode when we have ≥320.
 const SAMPLE_RATE = 16000
-const FRAME_SIZE = 320
+const OPUS_FRAME = 320   // valid Opus frame at 16kHz (20ms) — min latency
 const CHANNELS = 1
 
-// Lazy-init codecs on first use
 let encoder: InstanceType<typeof OpusScript> | null = null
 let decoder: InstanceType<typeof OpusScript> | null = null
 
@@ -29,16 +38,14 @@ function getDecoder() {
 let activeTransport: NoiseTransport | null = null
 let activeWebContents: WebContents | null = null
 
-/**
- * Set the active Noise transport and start piping audio.
- *
- * Outbound path: renderer → PCM Int16 IPC → main Opus encode → Noise encrypt → Tor
- * Inbound path:  Tor → Noise decrypt → main Opus decode → PCM Int16 IPC → renderer
- */
+// Accumulation buffer: renderer sends 256-sample chunks, we encode 320 at a time
+let pcmAccum = Buffer.alloc(0)
+
 export function setActiveTransport(transport: NoiseTransport, wc: WebContents): void {
   clearTransport()
   activeTransport = transport
   activeWebContents = wc
+  pcmAccum = Buffer.alloc(0)
   void pumpInbound(transport, wc)
 }
 
@@ -47,6 +54,7 @@ export function isTransportActive(): boolean { return activeTransport !== null }
 export function clearTransport(): void {
   activeTransport = null
   activeWebContents = null
+  pcmAccum = Buffer.alloc(0)
 }
 
 async function pumpInbound(transport: NoiseTransport, wc: WebContents): Promise<void> {
@@ -54,10 +62,9 @@ async function pumpInbound(transport: NoiseTransport, wc: WebContents): Promise<
     if (activeTransport !== transport) break
     if (wc.isDestroyed()) break
     try {
-      // Decode Opus frame → PCM Int16, send to renderer for playback
-      const pcm16: Buffer = getDecoder().decode(frame)
+      const pcm16 = getDecoder().decode(frame)
       wc.send('audio:inbound-frame', pcm16.buffer.slice(pcm16.byteOffset, pcm16.byteOffset + pcm16.byteLength))
-    } catch { /* skip malformed frame */ }
+    } catch (e) { console.error('[Audio] decode error:', (e as Error).message) }
   }
 }
 
@@ -67,13 +74,18 @@ export function registerAudioIpcHandlers(): void {
   if (ipcHandlerRegistered) return
   ipcHandlerRegistered = true
 
-  // Renderer sends raw PCM Int16 frames; we Opus-encode then push to Noise transport
   ipcMain.on('audio:outbound-frame', (_event, data: ArrayBuffer) => {
     if (!activeTransport) return
-    try {
-      const pcm16 = Buffer.from(data)
-      const opus = getEncoder().encode(pcm16, FRAME_SIZE)
-      activeTransport.send(opus)
-    } catch { /* transport error — caller handles via hangup */ }
+    // Accumulate PCM Int16 until we have a full Opus frame worth
+    pcmAccum = Buffer.concat([pcmAccum, Buffer.from(data)])
+    const frameSizeBytes = OPUS_FRAME * 2  // Int16 = 2 bytes per sample
+    while (pcmAccum.byteLength >= frameSizeBytes) {
+      const chunk = pcmAccum.slice(0, frameSizeBytes)
+      pcmAccum = pcmAccum.slice(frameSizeBytes)
+      try {
+        const opus = getEncoder().encode(chunk, OPUS_FRAME)
+        activeTransport.send(opus)
+      } catch (e) { console.error('[Audio] encode error:', (e as Error).message) }
+    }
   })
 }

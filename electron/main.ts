@@ -43,6 +43,27 @@ app.whenReady().then(async () => {
     sessionState.account = getAccount()
   }
 
+  // Request macOS system-level microphone access
+  if (process.platform === 'darwin') {
+    const { systemPreferences } = require('electron') as typeof import('electron')
+    const micStatus = systemPreferences.getMediaAccessStatus('microphone')
+    if (micStatus !== 'granted') {
+      await systemPreferences.askForMediaAccess('microphone')
+    }
+  }
+
+  // Grant microphone permission for getUserMedia inside the renderer
+  const { session } = require('electron') as typeof import('electron')
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowed = ['media', 'microphone', 'camera', 'audioCapture', 'videoCapture']
+    callback(allowed.includes(permission))
+  })
+  // Also required for macOS Sonoma+: set media access permission at system level
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    const allowed = ['media', 'microphone', 'camera', 'audioCapture', 'videoCapture']
+    return allowed.includes(permission)
+  })
+
   win = new BrowserWindow({
     width: 420,
     height: 700,
@@ -51,6 +72,11 @@ app.whenReady().then(async () => {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  })
+
+  // Forward renderer console → main process stdout so audio-path logs are visible in the terminal
+  win.webContents.on('console-message', (_e, level, message) => {
+    if (message.includes('[Audio]')) console.log('[renderer]', message)
   })
 
   const url = process.env.NODE_ENV === 'development'
@@ -95,11 +121,15 @@ ipcMain.handle('tor:remove-onion', async (_e, { serviceId }: { serviceId: string
 
 // Starknet identity IPC handlers
 ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) => {
-  const { getAccount, registerHandle } = await import('../renderer/lib/starknet-client')
+  const { getAccount, registerHandle, isRegistered } = await import('../renderer/lib/starknet-client')
   const { deriveStealthKeypairFromPrivKey } = await import('../renderer/lib/stealth-keys')
-  const account = getAccount()
+  getAccount() // ensure client initialised
   const kp = deriveStealthKeypairFromPrivKey(BigInt(process.env.STARKNET_PRIVATE_KEY ?? '0x1'))
   sessionState.viewingKey = kp.skV
+  // If the handle is already registered, skip the tx (idempotent onboarding)
+  if (await isRegistered(handle)) {
+    return 'already-registered'
+  }
   return registerHandle(handle, kp)
 })
 

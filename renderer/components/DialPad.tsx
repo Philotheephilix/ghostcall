@@ -22,12 +22,13 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
   const gc = () => (window as any).ghostcall
 
   async function callByHandle() {
-    if (!handle.trim() || isCalling) return
+    const trimmedHandle = handle.trim()
+    if (!trimmedHandle || isCalling) return
     setIsCalling(true)
     setStatusMsg('')
     try {
-      const meta = await gc().lookupStealth(handle.trim())
-      const onion = (meta as any)?.onionAddr ?? (meta as any)?.onion_addr ?? handle.trim()
+      const meta = await gc().lookupStealth(trimmedHandle)
+      const onion = (meta as any)?.onionAddr ?? (meta as any)?.onion_addr ?? trimmedHandle
       await gc().initiateCall(onion)
       window.location.href = '/call'
     } catch (e) {
@@ -37,11 +38,12 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
   }
 
   async function callDirect() {
-    if (!directAddr.trim() || isCalling) return
+    const trimmedAddr = directAddr.trim()
+    if (!trimmedAddr || isCalling) return
     setIsCalling(true)
     setStatusMsg('')
     try {
-      await gc().initiateCall(directAddr.trim())
+      await gc().initiateCall(trimmedAddr)
       window.location.href = '/call'
     } catch (e) {
       setIsCalling(false)
@@ -94,7 +96,7 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
             <button
               className="btn-primary"
               onClick={callByHandle}
-              disabled={!handle.trim() || isCalling || !torReady}
+              disabled={!handle || isCalling || !torReady}
             >
               {isCalling ? 'Connecting…' : 'Call'}
             </button>
@@ -115,7 +117,7 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
             <button
               className="btn-primary"
               onClick={callDirect}
-              disabled={!directAddr.trim() || isCalling || !torReady}
+              disabled={!directAddr || isCalling || !torReady}
             >
               {isCalling ? 'Connecting…' : 'Call'}
             </button>
@@ -147,8 +149,7 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
           fontSize: 15, fontFamily: 'var(--font-system)',
           transition: 'background 120ms',
         }}
-        onMouseEnter={e => { if (!isOnline) (e.currentTarget as HTMLElement).style.background = 'var(--glass-thin)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+        className={!isOnline ? 'hover:bg-glass-thin' : ''}
       >
         <span>{isOnline ? 'Online' : isGoingOnline ? 'Starting…' : 'Go online'}</span>
         {isOnline
