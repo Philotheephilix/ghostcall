@@ -153,7 +153,7 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
         <span>{isOnline ? 'Online' : isGoingOnline ? 'Starting…' : 'Go online'}</span>
         {isOnline
           ? <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--system-green)', opacity: 0.7 }}>
-              {onionAddr.slice(0, 12)}…
+              {onionAddr?.slice(0, 12)}…
             </span>
           : <span style={{ fontSize: 19, color: 'var(--label-quaternary)' }}>›</span>
         }

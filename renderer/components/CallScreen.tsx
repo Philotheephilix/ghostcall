@@ -111,7 +111,7 @@ export default function CallScreen() {
           <button
             className="btn-text"
             style={{ width: '100%', padding: '14px', color: 'var(--label-secondary)' }}
-            onClick={() => { window.location.href = '/' }}
+            onClick={() => { window.location.href = '/home' }}
           >
             Skip
           </button>
