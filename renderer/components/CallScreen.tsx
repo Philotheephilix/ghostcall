@@ -145,42 +145,58 @@ export default function CallScreen() {
           <button
             onClick={toggleMute}
             style={{
-              width: 64, height: 64,
-              borderRadius: '50%',
+              width: 64, height: 64, borderRadius: '50%',
               background: isMuted ? 'var(--system-gray-3)' : 'var(--glass-regular)',
               border: `0.5px solid ${isMuted ? 'var(--glass-border)' : 'var(--glass-border-mid)'}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', transition: 'background 150ms',
               backdropFilter: 'blur(20px)',
-              fontSize: 22,
             }}
           >
-            {isMuted ? '🔇' : '🎙️'}
+            {/* Mic icon */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isMuted ? 'var(--label-tertiary)' : 'var(--label-primary)'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              {isMuted ? (
+                <>
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                  <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                  <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </>
+              ) : (
+                <>
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </>
+              )}
+            </svg>
           </button>
           <span style={{ fontSize: 11, color: 'var(--label-tertiary)' }}>
-            {isMuted ? 'Muted' : 'Mute'}
+            {isMuted ? 'Unmute' : 'Mute'}
           </span>
         </div>
 
-        {/* End call — red circle, bigger */}
+        {/* End call — red circle */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <button
             onClick={endCall}
             style={{
-              width: 72, height: 72,
-              borderRadius: '50%',
-              background: 'var(--system-red)',
-              border: 'none',
+              width: 72, height: 72, borderRadius: '50%',
+              background: 'var(--system-red)', border: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer',
-              fontSize: 24,
               boxShadow: '0 4px 24px rgba(255,69,58,0.4)',
               transition: 'transform 80ms, opacity 80ms',
             }}
             onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.93)')}
             onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
           >
-            📵
+            {/* Phone down icon */}
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="white" stroke="none">
+              <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" transform="rotate(135 12 12)" />
+            </svg>
           </button>
           <span style={{ fontSize: 11, color: 'var(--label-tertiary)' }}>End</span>
         </div>
