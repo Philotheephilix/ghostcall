@@ -8,6 +8,8 @@ import { useTorStatus } from '../../hooks/useTorStatus'
 
 type Step = 'welcome' | 'wallet' | 'handle' | 'fund'
 
+const STEPS: Step[] = ['welcome', 'wallet', 'handle', 'fund']
+
 function OnboardingInner() {
   const params = useSearchParams()
   const torStatus = useTorStatus()
@@ -26,15 +28,17 @@ function OnboardingInner() {
     setStep(s)
   }
 
+  const stepIndex = STEPS.indexOf(step)
+
   return (
     <main className="page" style={{ gap: 0, justifyContent: 'flex-start', paddingTop: 60 }}>
       {/* Step indicators */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 48 }}>
-        {(['welcome', 'wallet', 'handle', 'fund'] as Step[]).map((s, i) => (
+        {STEPS.map((s, i) => (
           <div key={s} style={{
             width: step === s ? 20 : 6,
             height: 6, borderRadius: 3,
-            background: i <= ['welcome','wallet','handle','fund'].indexOf(step)
+            background: i <= stepIndex
               ? 'var(--system-blue)'
               : 'var(--system-gray-3)',
             transition: 'width 300ms var(--spring), background 300ms',
@@ -102,24 +106,30 @@ function WalletStep({ onNext }: { onNext: () => void }) {
   const [connecting, setConnecting] = useState(false)
   const [err, setErr] = useState('')
 
-  async function connect() {
+  async function connectWallet(devMode: boolean) {
     setConnecting(true)
     setErr('')
     try {
-      const starknet = (window as any).starknet
-      if (starknet?.enable) {
+      if (devMode) {
+        saveState({ walletConnected: true, walletAddress: 'dev-mode' })
+      } else {
+        const starknet = (window as any).starknet
+        if (!starknet?.enable) throw new Error('No Starknet wallet found. Install Argent X or Braavos.')
         await starknet.enable()
         const addr = starknet.selectedAddress ?? starknet.account?.address ?? ''
         saveState({ walletConnected: true, walletAddress: addr })
-      } else {
-        // Dev mode — no wallet extension
-        saveState({ walletConnected: true, walletAddress: 'dev-mode' })
       }
       onNext()
     } catch (e) {
       setErr((e as Error).message)
     } finally { setConnecting(false) }
   }
+
+  const wallets = [
+    { name: 'Argent X',  sub: 'Most popular Starknet wallet', dev: false },
+    { name: 'Braavos',   sub: 'Hardware security module',     dev: false },
+    { name: 'Dev mode',  sub: 'No wallet — testing only',     dev: true  },
+  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32, width: '100%', maxWidth: 360 }}>
@@ -132,15 +142,11 @@ function WalletStep({ onNext }: { onNext: () => void }) {
 
       {/* Wallet options */}
       <div className="glass-card" style={{ width: '100%', padding: 0, overflow: 'hidden' }}>
-        {[
-          { name: 'Argent X',  sub: 'Most popular Starknet wallet' },
-          { name: 'Braavos',   sub: 'Hardware security module' },
-          { name: 'Dev mode',  sub: 'No wallet — testing only' },
-        ].map((w, i) => (
+        {wallets.map((w, i) => (
           <div key={w.name}>
             {i > 0 && <div className="divider" />}
             <button
-              onClick={connect}
+              onClick={() => connectWallet(w.dev)}
               disabled={connecting}
               style={{
                 width: '100%', padding: '16px 20px',
@@ -245,40 +251,53 @@ function HandleStep({ onNext, torStatus }: { onNext: () => void; torStatus: Retu
 }
 
 // ── Fund ───────────────────────────────────────────────────────────────────
+const RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? ''
+const STRK_SEPOLIA = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
+
+async function fetchStrkBalance(addr: string): Promise<string> {
+  const res = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'starknet_call',
+      params: [{
+        contract_address: STRK_SEPOLIA,
+        entry_point_selector: '0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e',
+        calldata: [addr],
+      }, 'latest'],
+    }),
+  })
+  const data = await res.json()
+  if (!data.result) throw new Error('No result')
+  // Uint256 = [low_felt, high_felt]
+  const low = BigInt(data.result[0])
+  const high = BigInt(data.result[1] ?? '0x0')
+  const total = low + (high << 128n)
+  return (Number(total) / 1e18).toFixed(4)
+}
+
 function FundStep() {
   const state = loadState()
   const [balance, setBalance] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
-  const RPC = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? 'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/oJTjnNCsJEOqYv3MMtrtT6LUFhwcW9pR'
-  const STRK_SEPOLIA = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
-  const accountAddr = '0x52b6665bf24e43e5a612417f43ceaf120186d091f5d2fcb3782bf2d672ad13f'
+  // Use the wallet address captured during onboarding; fall back to test account
+  const accountAddr = (state.walletAddress && state.walletAddress !== 'dev-mode')
+    ? state.walletAddress
+    : '0x52b6665bf24e43e5a612417f43ceaf120186d091f5d2fcb3782bf2d672ad13f'
 
   async function checkBalance() {
     setChecking(true)
     try {
-      const res = await fetch(RPC, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1, method: 'starknet_call',
-          params: [{
-            contract_address: STRK_SEPOLIA,
-            entry_point_selector: '0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e',
-            calldata: [accountAddr],
-          }, 'latest'],
-        }),
-      })
-      const data = await res.json()
-      if (data.result) {
-        const low = BigInt(data.result[0])
-        const total = low
-        setBalance((Number(total) / 1e18).toFixed(2))
-      }
+      setBalance(await fetchStrkBalance(accountAddr))
     } catch { setBalance('—') }
     finally { setChecking(false) }
   }
 
   function finish() {
+    if (!loadState().registered) {
+      window.location.replace('/onboarding?step=handle')
+      return
+    }
     saveState({ onboardingDone: true })
     window.location.replace('/home')
   }

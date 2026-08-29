@@ -8,16 +8,20 @@ import { loadState } from '../../lib/app-state'
 
 export default function Home() {
   const torStatus = useTorStatus()
+  const [ready, setReady] = useState(false)
   const [isOnline, setIsOnline] = useState(false)
   const [onionAddr, setOnionAddr] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
   const [handle, setHandle] = useState('')
 
   useEffect(() => {
-    // Guard — must have completed onboarding
     const state = loadState()
-    if (!state.onboardingDone) { window.location.replace('/onboarding'); return }
+    if (!state.onboardingDone || !state.registered) {
+      window.location.replace('/onboarding')
+      return
+    }
     setHandle(state.handle)
+    setReady(true)
 
     const gc = (window as any).ghostcall
     if (!gc) return
@@ -40,6 +44,8 @@ export default function Home() {
   }
 
   const torOk = torStatus?.running === true
+
+  if (!ready) return null
 
   return (
     <main className="page" style={{ gap: 0 }}>

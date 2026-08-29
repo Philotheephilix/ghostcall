@@ -4,34 +4,43 @@ import { useState, useEffect } from 'react'
 import { loadState, clearState } from '../../lib/app-state'
 import { useTorStatus } from '../../hooks/useTorStatus'
 
+// Shared balance fetcher — Uint256 aware
+const RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? ''
+const STRK = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
+
+async function fetchBalance(addr: string): Promise<string> {
+  const res = await fetch(RPC_URL, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'starknet_call',
+      params: [{ contract_address: STRK, entry_point_selector: '0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e', calldata: [addr] }, 'latest'],
+    }),
+  })
+  const data = await res.json()
+  if (!data.result) throw new Error('No result')
+  const low = BigInt(data.result[0])
+  const high = BigInt(data.result[1] ?? '0x0')
+  return (Number(low + (high << 128n)) / 1e18).toFixed(4)
+}
+
 export default function Settings() {
   const torStatus = useTorStatus()
-  const [state, setState] = useState(loadState())
+  const [state, setState] = useState<ReturnType<typeof loadState> | null>(null)
   const [balance, setBalance] = useState<string | null>(null)
-  const accountAddr = '0x52b6665bf24e43e5a612417f43ceaf120186d091f5d2fcb3782bf2d672ad13f'
 
-  useEffect(() => { setState(loadState()) }, [])
+  useEffect(() => {
+    const s = loadState()
+    if (!s.onboardingDone) { window.location.replace('/onboarding'); return }
+    setState(s)
+  }, [])
+
+  const accountAddr = (state?.walletAddress && state?.walletAddress !== 'dev-mode')
+    ? state?.walletAddress
+    : '0x52b6665bf24e43e5a612417f43ceaf120186d091f5d2fcb3782bf2d672ad13f'
 
   async function checkBalance() {
-    try {
-      const res = await fetch('https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/oJTjnNCsJEOqYv3MMtrtT6LUFhwcW9pR', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1, method: 'starknet_call',
-          params: [{
-            contract_address: '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
-            entry_point_selector: '0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e',
-            calldata: [accountAddr],
-          }, 'latest'],
-        }),
-      })
-      const data = await res.json()
-      if (data.result) {
-        const total = BigInt(data.result[0])
-        setBalance((Number(total) / 1e18).toFixed(4))
-      }
-    } catch { setBalance('—') }
+    try { setBalance(await fetchBalance(accountAddr)) }
+    catch { setBalance('—') }
   }
 
   function resetOnboarding() {
@@ -70,19 +79,19 @@ export default function Settings() {
       <div className="glass-card" style={{ marginBottom: 24, padding: 0, overflow: 'hidden' }}>
         <div className="list-row" style={{ padding: '14px 20px' }}>
           <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Handle</span>
-          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--system-green)' }}>@{state.handle || '—'}</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--system-green)' }}>@{state?.handle || '—'}</span>
         </div>
         <div className="list-row" style={{ padding: '14px 20px' }}>
           <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Registered</span>
-          <span style={{ fontSize: 14, color: state.registered ? 'var(--system-green)' : 'var(--label-tertiary)' }}>
-            {state.registered ? '✓ On Starknet Sepolia' : 'Not yet'}
+          <span style={{ fontSize: 14, color: state?.registered ? 'var(--system-green)' : 'var(--label-tertiary)' }}>
+            {state?.registered ? '✓ On Starknet Sepolia' : 'Not yet'}
           </span>
         </div>
-        {state.registrationTx && (
+        {state?.registrationTx && (
           <div className="list-row" style={{ padding: '14px 20px' }}>
             <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Reg. TX</span>
             <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--label-tertiary)' }}>
-              {state.registrationTx.slice(0, 10)}…{state.registrationTx.slice(-6)}
+              {state?.registrationTx.slice(0, 10)}…{state?.registrationTx.slice(-6)}
             </span>
           </div>
         )}
