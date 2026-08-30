@@ -7,7 +7,9 @@
   },
   "include": [
     "renderer/**/*.test.ts",
+    "renderer/**/*.test.tsx",
     "renderer/**/__tests__/**/*.ts",
+    "renderer/**/__tests__/**/*.tsx",
     "electron/**/__tests__/**/*.ts",
     "electron/**/*.test.ts",
     "scripts/**/*.test.ts"

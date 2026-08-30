@@ -1,7 +1,8 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'ts-jest',
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
+  setupFilesAfterEnv: ['@testing-library/jest-dom'],
   // Transform all ESM-only packages and their nested copies under nostr-tools
   transformIgnorePatterns: [
     'node_modules/(?!(nostr-tools/node_modules/@noble|@noble|@scure|nostr-tools)/)',
@@ -36,5 +37,6 @@ module.exports = {
   },
   testMatch: [
     '**/__tests__/**/*.test.ts',
+    '**/__tests__/**/*.test.tsx',
   ],
 }
