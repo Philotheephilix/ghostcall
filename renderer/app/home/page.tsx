@@ -5,6 +5,7 @@ import Logo from '../../components/Logo'
 import DialPad from '../../components/DialPad'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import { loadState } from '../../lib/app-state'
+import { onIdentityReady } from '../../lib/identity-client'
 
 export default function Home() {
   const torStatus = useTorStatus()
@@ -15,19 +16,32 @@ export default function Home() {
   const [handle, setHandle] = useState('')
 
   useEffect(() => {
-    const state = loadState()
-    if (!state.onboardingDone || !state.registered) {
-      window.location.replace('/onboarding')
-      return
-    }
-    setHandle(state.handle)
-    setReady(true)
+    let innerCleanup: (() => void) | null = null
+    const cleanup = onIdentityReady(({ source, error }) => {
+      cleanup() // one-shot
 
-    const gc = (window as any).ghostcall
-    if (!gc) return
-    const cleanup1 = gc.onCallConnected?.(() => { window.location.href = '/call' })
-    const cleanup2 = gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
-    return () => { cleanup1?.(); cleanup2?.() }
+      if (error === 'decryption-failed') {
+        window.location.replace('/onboarding')
+        return
+      }
+
+      const state = loadState()
+      if (source === '' || !state.onboardingDone || !state.registered) {
+        window.location.replace('/onboarding')
+        return
+      }
+
+      setHandle(state.handle)
+      setReady(true)
+
+      const gc = (window as any).ghostcall
+      if (!gc) return
+      const cleanup1 = gc.onCallConnected?.(() => { window.location.href = '/call' })
+      const cleanup2 = gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
+      innerCleanup = () => { cleanup1?.(); cleanup2?.() }
+    })
+
+    return () => { cleanup(); innerCleanup?.() }
   }, [])
 
   async function goOnline() {
