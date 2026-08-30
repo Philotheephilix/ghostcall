@@ -7,6 +7,41 @@ interface Props {
   onImport: (words: string[]) => Promise<void>
 }
 
+interface WordInputProps {
+  idx: number
+  value: string
+  error: boolean
+  onChange: (idx: number, val: string) => void
+  onBlur: (idx: number) => void
+  onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void
+}
+
+function WordInput({ idx, value, error, onChange, onBlur, onPaste }: WordInputProps) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'var(--label-tertiary)', marginBottom: 2 }}>{idx + 1}</div>
+      <input
+        className="input-glass"
+        style={{
+          fontSize: 13, padding: '6px 8px',
+          borderColor: error ? 'var(--system-red)' : undefined,
+        }}
+        type="text"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        value={value}
+        onChange={e => onChange(idx, e.target.value)}
+        onBlur={() => onBlur(idx)}
+        onPaste={onPaste}
+      />
+      {error && (
+        <div style={{ fontSize: 11, color: 'var(--system-red)', marginTop: 2 }}>invalid word</div>
+      )}
+    </div>
+  )
+}
+
 export default function SeedImport({ onImport }: Props) {
   const [words, setWords] = useState<string[]>(Array(12).fill(''))
   const [errors, setErrors] = useState<boolean[]>(Array(12).fill(false))
@@ -66,40 +101,14 @@ export default function SeedImport({ onImport }: Props) {
   const left = [0,1,2,3,4,5]
   const right = [6,7,8,9,10,11]
 
-  function WordInput({ idx }: { idx: number }) {
-    return (
-      <div>
-        <div style={{ fontSize: 11, color: 'var(--label-tertiary)', marginBottom: 2 }}>{idx + 1}</div>
-        <input
-          className="input-glass"
-          style={{
-            fontSize: 13, padding: '6px 8px',
-            borderColor: errors[idx] ? 'var(--system-red)' : undefined,
-          }}
-          type="text"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={words[idx]}
-          onChange={e => setWord(idx, e.target.value)}
-          onBlur={() => validateWord(idx)}
-          onPaste={handlePaste}
-        />
-        {errors[idx] && (
-          <div style={{ fontSize: 11, color: 'var(--system-red)', marginTop: 2 }}>invalid word</div>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {left.map(i => <WordInput key={i} idx={i} />)}
+          {left.map(i => <WordInput key={i} idx={i} value={words[i]} error={errors[i]} onChange={setWord} onBlur={validateWord} onPaste={handlePaste} />)}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {right.map(i => <WordInput key={i} idx={i} />)}
+          {right.map(i => <WordInput key={i} idx={i} value={words[i]} error={errors[i]} onChange={setWord} onBlur={validateWord} onPaste={handlePaste} />)}
         </div>
       </div>
 

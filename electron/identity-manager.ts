@@ -144,6 +144,7 @@ export async function handleZkeyCallback(url: string): Promise<void> {
     // TODO: parse sub/aud/iss from id_token and compute H(sub,aud,iss,salt) per zKey spec
     const address = process.env.STARKNET_ACCOUNT_ADDRESS ?? '0xzkey_placeholder'
     initStarknetClient(rpcUrl, address, '0x' + zkeySession.sessionPrivKeyHex)
+    notifyAccountReady()
 
     if (zkeySession.timeoutId) clearTimeout(zkeySession.timeoutId)
     win.webContents.send('identity:zkey-result', { ok: true, address })
@@ -298,6 +299,7 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
     const address = deriveAddress(privKeyHex)
     const rpcUrl = process.env.STARKNET_RPC_URL ?? ''
     initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
+    notifyAccountReady()
     saveMnemonic(mnemonic)
     return { address }
   })
@@ -310,6 +312,7 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
     const address = deriveAddress(privKeyHex)
     const rpcUrl = process.env.STARKNET_RPC_URL ?? ''
     initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
+    notifyAccountReady()
     saveMnemonic(mnemonic)
     return { address }
   })
