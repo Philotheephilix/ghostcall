@@ -27,13 +27,19 @@ test('derivePrivKeyFromMnemonic is deterministic', () => {
   expect(k1).toBe(k2)
 })
 
-test('derivePrivKeyFromMnemonic uses m/44\'/9004\'/0\'/0/0 path', () => {
+test('derivePrivKeyFromMnemonic uses m/44\'/9004\'/0\'/0/0 path and reduces mod STARK_ORDER', () => {
+  const STARK_ORDER = BigInt('0x0800000000000011000000000000000000000000000000000000000000000001')
   const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
   const seed = mnemonicToSeedSync(mnemonic)
   const root = HDKey.fromMasterSeed(seed)
   const child = root.derive("m/44'/9004'/0'/0/0")
-  const expected = BigInt('0x' + Buffer.from(child.privateKey!).toString('hex'))
-  expect(derivePrivKeyFromMnemonic(mnemonic)).toBe(expected)
+  const raw = BigInt('0x' + Buffer.from(child.privateKey!).toString('hex'))
+  const expected = raw % STARK_ORDER || 1n
+  const result = derivePrivKeyFromMnemonic(mnemonic)
+  expect(result).toBe(expected)
+  // Result must be a valid Stark scalar
+  expect(result).toBeGreaterThan(0n)
+  expect(result).toBeLessThan(STARK_ORDER)
 })
 
 test('mnemonicToWords splits correctly', () => {

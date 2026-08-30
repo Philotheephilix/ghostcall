@@ -209,7 +209,10 @@ export function derivePrivKeyFromMnemonic(mnemonic: string): bigint {
   const root = HDKey.fromMasterSeed(seed)
   const child = root.derive("m/44'/9004'/0'/0/0")
   if (!child.privateKey) throw new Error('BIP32 derivation failed')
-  return BigInt('0x' + Buffer.from(child.privateKey).toString('hex'))
+  const raw = BigInt('0x' + Buffer.from(child.privateKey).toString('hex'))
+  // BIP32 keys can exceed the Stark curve order — reduce to a valid scalar
+  const reduced = raw % STARK_ORDER
+  return reduced === 0n ? 1n : reduced
 }
 
 // ── Address derivation ─────────────────────────────────────────────────────
