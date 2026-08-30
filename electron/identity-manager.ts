@@ -7,7 +7,13 @@ import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { HDKey } from '@scure/bip32'
 import { ProjectivePoint } from '@scure/starknet'
 import { initStarknetClient, getAccount } from '../renderer/lib/starknet-client'
+import { ec, hash, CallData } from 'starknet'
 import type { Account } from 'starknet'
+
+// OpenZeppelin Cairo 0 account class hash — the most widely deployed account
+// type on Starknet Sepolia and Mainnet. Used to derive the counterfactual
+// address from a public key before the account is deployed.
+const OZ_ACCOUNT_CLASS_HASH = '0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f'
 
 // ── zKey pending callback (macOS open-url can fire before win is ready) ───
 let _pendingCallbackUrl: string | null = null
@@ -208,13 +214,16 @@ export function derivePrivKeyFromMnemonic(mnemonic: string): bigint {
 
 // ── Address derivation ─────────────────────────────────────────────────────
 
-// TODO: replace with proper Starknet account address derivation when
-// account deployment is implemented.
-function deriveAddress(_privKeyHex: string): string {
-  if (!process.env.STARKNET_ACCOUNT_ADDRESS) {
-    throw new Error('STARKNET_ACCOUNT_ADDRESS is required — set it in .env')
+// Derives the counterfactual OZ account address from a Stark private key.
+// Uses STARKNET_ACCOUNT_ADDRESS from .env as an override for users who
+// already have a deployed account at a different address.
+function deriveAddress(privKeyHex: string): string {
+  if (process.env.STARKNET_ACCOUNT_ADDRESS) {
+    return process.env.STARKNET_ACCOUNT_ADDRESS
   }
-  return process.env.STARKNET_ACCOUNT_ADDRESS
+  const pubKey = ec.starkCurve.getStarkKey('0x' + privKeyHex)
+  const calldata = CallData.compile({ publicKey: pubKey })
+  return hash.calculateContractAddressFromHash(pubKey, OZ_ACCOUNT_CLASS_HASH, calldata, 0)
 }
 
 // ── Storage ────────────────────────────────────────────────────────────────
