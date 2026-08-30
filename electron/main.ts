@@ -5,7 +5,7 @@ import path from 'path'
 require('dotenv').config({ path: path.join(__dirname, '../../.env') })
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
-import { runIdentityStartupSequence, registerIdentityIpcHandlers, onAccountReady } from './identity-manager'
+import { runIdentityStartupSequence, registerIdentityIpcHandlers, onAccountReady, handleZkeyCallback } from './identity-manager'
 import { sendShieldedPayment } from '../renderer/lib/strk20-payment'
 import type { Account } from 'starknet'
 
@@ -29,6 +29,26 @@ let win: BrowserWindow | null = null
 // Populate sessionState.account whenever identity-manager initialises the client
 onAccountReady((account: Account) => {
   sessionState.account = account
+})
+
+// Single instance lock — required for Windows OAuth callback via second-instance event
+// Must be called before app.whenReady()
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+}
+
+app.on('second-instance', (_e, argv) => {
+  // Windows: OAuth redirect URL arrives in argv
+  const url = argv.find((a: string) => a.startsWith('ghostcall://'))
+  if (url) handleZkeyCallback(url)
+  if (win) win.focus()
+})
+
+app.setAsDefaultProtocolClient('ghostcall')
+
+app.on('open-url', (_e, url) => {
+  // macOS: OAuth redirect URL arrives here
+  handleZkeyCallback(url)
 })
 
 app.whenReady().then(async () => {
@@ -73,9 +93,11 @@ app.whenReady().then(async () => {
   // Register call IPC handlers
   registerCallIpcHandlers(win)
 
-  // Register identity IPC handlers and run startup sequence
+  // Register identity IPC handlers and run startup sequence on load
   registerIdentityIpcHandlers(win)
-  await runIdentityStartupSequence(win)
+  win.webContents.once('did-finish-load', () => {
+    runIdentityStartupSequence(win!)
+  })
 
   // Start Tor (non-blocking — app works without Tor, calls require it)
   torManager.start().then(() => {

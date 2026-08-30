@@ -1,11 +1,146 @@
 import path from 'path'
 import fs from 'fs'
-import { app, ipcMain, safeStorage, BrowserWindow } from 'electron'
+import { app, ipcMain, safeStorage, shell, BrowserWindow } from 'electron'
 import { generateMnemonic, validateMnemonic, mnemonicToSeedSync } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { HDKey } from '@scure/bip32'
 import { initStarknetClient, getAccount } from '../renderer/lib/starknet-client'
 import type { Account } from 'starknet'
+
+// ── zKey session state ─────────────────────────────────────────────────────
+
+interface ZkeySession {
+  state: string
+  codeVerifier: string
+  sessionPrivKeyHex: string
+  inFlight: boolean
+  abortController: AbortController | null
+  win: BrowserWindow | null
+  timeoutId: ReturnType<typeof setTimeout> | null
+}
+
+const zkeySession: ZkeySession = {
+  state: '',
+  codeVerifier: '',
+  sessionPrivKeyHex: '',
+  inFlight: false,
+  abortController: null,
+  win: null,
+  timeoutId: null,
+}
+
+function cancelZkeySession(): void {
+  zkeySession.abortController?.abort()
+  if (zkeySession.timeoutId) clearTimeout(zkeySession.timeoutId)
+  zkeySession.state = ''
+  zkeySession.codeVerifier = ''
+  zkeySession.sessionPrivKeyHex = ''
+  zkeySession.inFlight = false
+  zkeySession.abortController = null
+  zkeySession.timeoutId = null
+}
+
+const STARK_ORDER = BigInt('0x0800000000000011000000000000000000000000000000000000000000000001')
+
+function generateZkeySession(): { authUrl: string } {
+  const crypto = require('crypto') as typeof import('crypto')
+
+  // Session keypair (ephemeral — held in memory for this OAuth session only; never logged or sent to renderer)
+  const sessionKeyBytes = crypto.randomBytes(32)
+  const sessionPrivKey = BigInt('0x' + sessionKeyBytes.toString('hex')) % STARK_ORDER
+  zkeySession.sessionPrivKeyHex = sessionPrivKey.toString(16).padStart(64, '0')
+
+  // PKCE
+  const verifierBytes = crypto.randomBytes(32)
+  zkeySession.codeVerifier = verifierBytes.toString('base64url')
+  const challenge = crypto.createHash('sha256').update(zkeySession.codeVerifier).digest('base64url')
+
+  // State nonce
+  zkeySession.state = crypto.randomBytes(32).toString('hex')
+  zkeySession.inFlight = true
+  zkeySession.abortController = new AbortController()
+
+  // TODO: replace with actual zKey endpoint — authorization endpoint
+  const authUrl = new URL('https://accounts.zkey.org/oauth/authorize')
+  authUrl.searchParams.set('client_id', 'ghostcall') // TODO: replace with actual zKey endpoint — register client_id
+  authUrl.searchParams.set('redirect_uri', 'ghostcall://zkey-callback')
+  authUrl.searchParams.set('response_type', 'code')
+  authUrl.searchParams.set('scope', 'openid')
+  authUrl.searchParams.set('state', zkeySession.state)
+  authUrl.searchParams.set('code_challenge', challenge)
+  authUrl.searchParams.set('code_challenge_method', 'S256')
+
+  return { authUrl: authUrl.toString() }
+}
+
+export async function handleZkeyCallback(url: string): Promise<void> {
+  if (!zkeySession.win) return
+  const win = zkeySession.win
+  try {
+    const parsed = new URL(url)
+    const code = parsed.searchParams.get('code')
+    const state = parsed.searchParams.get('state')
+
+    if (state !== zkeySession.state || !zkeySession.inFlight) {
+      win.webContents.send('identity:zkey-result', { ok: false, error: 'Session expired — please try again' })
+      cancelZkeySession()
+      return
+    }
+
+    // Start 30s timeout from when callback is received
+    zkeySession.timeoutId = setTimeout(() => {
+      win.webContents.send('identity:zkey-result', { ok: false, error: 'Verification timed out — please try again' })
+      cancelZkeySession()
+    }, 30_000)
+
+    const signal = zkeySession.abortController!.signal
+    const rpcUrl = process.env.STARKNET_RPC_URL ?? ''
+
+    // TODO: replace with actual zKey endpoint — token exchange
+    const tokenRes = await fetch('https://api.zkey.org/oauth/token', {
+      method: 'POST', signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        code_verifier: zkeySession.codeVerifier,
+        redirect_uri: 'ghostcall://zkey-callback',
+        client_id: 'ghostcall', // TODO: replace with actual zKey endpoint — actual registered client_id
+      }),
+    })
+    if (!tokenRes.ok) throw new Error(`Token exchange failed: ${tokenRes.status}`)
+    const { id_token } = await tokenRes.json() as { id_token: string }
+
+    // TODO: replace with actual zKey endpoint — salt request
+    const saltRes = await fetch('https://api.zkey.org/salt', {
+      method: 'POST', signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token }),
+    })
+    if (!saltRes.ok) throw new Error(`Salt request failed: ${saltRes.status}`)
+    const { salt } = await saltRes.json() as { salt: string }
+
+    // TODO: replace with actual zKey endpoint — ZKP prove
+    const proveRes = await fetch('https://api.zkey.org/zkp/prove', {
+      method: 'POST', signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token, salt, session_pub_key: '0x' + zkeySession.sessionPrivKeyHex }),
+    })
+    if (!proveRes.ok) throw new Error(`ZKP proof failed: ${proveRes.status}`)
+
+    // TODO: parse sub/aud/iss from id_token and compute H(sub,aud,iss,salt) per zKey spec
+    const address = process.env.STARKNET_ACCOUNT_ADDRESS ?? '0xzkey_placeholder'
+    initStarknetClient(rpcUrl, address, '0x' + zkeySession.sessionPrivKeyHex)
+
+    if (zkeySession.timeoutId) clearTimeout(zkeySession.timeoutId)
+    win.webContents.send('identity:zkey-result', { ok: true, address })
+    cancelZkeySession()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg === 'AbortError' || msg.includes('abort')) return // cancelled
+    zkeySession.win?.webContents.send('identity:zkey-result', { ok: false, error: msg })
+    cancelZkeySession()
+  }
+}
 
 // ── Session account setter (called by main.ts after runIdentityStartupSequence) ──
 // main.ts owns SessionState; identity-manager calls back via this setter so
@@ -120,6 +255,7 @@ let _win: BrowserWindow | null = null
 export function registerIdentityIpcHandlers(win: BrowserWindow): void {
   // Always update the win reference so it stays current across calls
   _win = win
+  zkeySession.win = win
 
   if (_identityHandlersRegistered) return
   _identityHandlersRegistered = true
@@ -166,5 +302,21 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
     return { address, source: 'seed' }
   })
 
-  // zKey handlers registered separately in Task 3
+  ipcMain.handle('identity:zkey-begin', async (_e, { provider: _provider }: { provider: 'google' | 'apple' }) => {
+    // Cancel any in-flight session first
+    if (zkeySession.inFlight) cancelZkeySession()
+    const { authUrl } = generateZkeySession()
+    try {
+      await shell.openExternal(authUrl)
+    } catch {
+      zkeySession.win?.webContents.send('identity:zkey-result', {
+        ok: false, error: 'Could not open browser — check your default browser settings',
+      })
+      cancelZkeySession()
+    }
+  })
+
+  ipcMain.handle('identity:zkey-cancel', () => {
+    cancelZkeySession()
+  })
 }
