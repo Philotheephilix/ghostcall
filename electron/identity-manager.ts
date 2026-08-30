@@ -31,10 +31,11 @@ export function derivePrivKeyFromMnemonic(mnemonic: string): bigint {
 
 // TODO: replace with proper Starknet account address derivation when
 // account deployment is implemented.
-function deriveAddress(privKeyHex: string): string {
-  // In dev/test mode, use the env address directly.
-  // In production the address comes from the deployed account contract.
-  return process.env.STARKNET_ACCOUNT_ADDRESS ?? ('0x' + privKeyHex.slice(-40).padStart(40, '0'))
+function deriveAddress(_privKeyHex: string): string {
+  if (!process.env.STARKNET_ACCOUNT_ADDRESS) {
+    throw new Error('STARKNET_ACCOUNT_ADDRESS is required — set it in .env')
+  }
+  return process.env.STARKNET_ACCOUNT_ADDRESS
 }
 
 // ── Storage ────────────────────────────────────────────────────────────────
@@ -91,13 +92,15 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
 // ── IPC handlers ───────────────────────────────────────────────────────────
 
 let _identityHandlersRegistered = false
+// Updated on every call so Task 3's zKey handlers always have a live reference
+let _win: BrowserWindow | null = null
 
 export function registerIdentityIpcHandlers(win: BrowserWindow): void {
+  // Always update the win reference so it stays current across calls
+  _win = win
+
   if (_identityHandlersRegistered) return
   _identityHandlersRegistered = true
-
-  // win is accepted for Task 3 compatibility (zKey OAuth path needs it)
-  void win
 
   ipcMain.handle('identity:exists', () => ({ exists: identityFileExists() }))
 
@@ -108,7 +111,7 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('identity:save', (_e, { words }: { words: string[] }) => {
     const mnemonic = wordsToMnemonic(words)
-    if (!validateMnemonic(mnemonic, wordlist)) throw new Error('Invalid mnemonic')
+    // derivePrivKeyFromMnemonic validates and throws uniformly on bad input
     const privKey = derivePrivKeyFromMnemonic(mnemonic)
     const privKeyHex = privKey.toString(16).padStart(64, '0')
     const address = deriveAddress(privKeyHex)
@@ -120,7 +123,7 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('identity:import', (_e, { words }: { words: string[] }) => {
     const mnemonic = wordsToMnemonic(words)
-    if (!validateMnemonic(mnemonic, wordlist)) throw new Error('Invalid mnemonic — check your words and try again')
+    // derivePrivKeyFromMnemonic validates and throws uniformly on bad input
     const privKey = derivePrivKeyFromMnemonic(mnemonic)
     const privKeyHex = privKey.toString(16).padStart(64, '0')
     const address = deriveAddress(privKeyHex)

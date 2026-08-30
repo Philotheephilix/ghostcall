@@ -2,7 +2,7 @@
 // Tests the pure derivation logic (not IPC handlers — those need Electron)
 
 import { generateMnemonic, validateMnemonic } from '@scure/bip39'
-import { wordlist } from '@scure/bip39/wordlists/english'
+import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 

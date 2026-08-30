@@ -5,7 +5,6 @@ import path from 'path'
 require('dotenv').config({ path: path.join(__dirname, '../../.env') })
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
-import { initStarknetClient } from '../renderer/lib/starknet-client'
 import { sendShieldedPayment } from '../renderer/lib/strk20-payment'
 import type { Account } from 'starknet'
 
@@ -27,21 +26,8 @@ const sessionState: SessionState = {
 let win: BrowserWindow | null = null
 
 app.whenReady().then(async () => {
-  // Initialise Starknet client from env (no-op if env vars missing — dev mode)
-  if (
-    process.env.STARKNET_ACCOUNT_ADDRESS &&
-    process.env.STARKNET_PRIVATE_KEY &&
-    process.env.STARKNET_RPC_URL
-  ) {
-    initStarknetClient(
-      process.env.STARKNET_RPC_URL,
-      process.env.STARKNET_ACCOUNT_ADDRESS,
-      process.env.STARKNET_PRIVATE_KEY,
-    )
-    // Cache the Account instance for payment use
-    const { getAccount } = await import('../renderer/lib/starknet-client')
-    sessionState.account = getAccount()
-  }
+  // Starknet client init is now handled by runIdentityStartupSequence
+  // (called after win is created) — do not call initStarknetClient here.
 
   // Request macOS system-level microphone access
   if (process.platform === 'darwin') {
