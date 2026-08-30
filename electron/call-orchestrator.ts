@@ -105,11 +105,18 @@ export async function hangUp(): Promise<void> {
   }
 }
 
+export interface CallIpcHooks {
+  /** Called at the start of call:initiate — use to clear stale session state */
+  onInitiate?: () => void
+  /** Called at the start of call:hang-up — use to clear stale session state */
+  onHangUp?: () => void
+}
+
 /**
  * Register all call-related IPC handlers.
  * Call once from main process after window is created.
  */
-export function registerCallIpcHandlers(win: BrowserWindow): void {
+export function registerCallIpcHandlers(win: BrowserWindow, hooks: CallIpcHooks = {}): void {
   registerAudioIpcHandlers()
 
   ipcMain.handle('call:go-online', async () => {
@@ -128,6 +135,8 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
   })
 
   ipcMain.handle('call:initiate', async (_e, { onionAddr }: { onionAddr: string }) => {
+    // Clear stale callee address so direct-dial pay uses fresh lookup
+    hooks.onInitiate?.()
     // Validate format before passing to SOCKS5 — prevents injection via renderer input
     if (typeof onionAddr !== 'string' || !ONION_ADDR_RE.test(onionAddr)) {
       throw new Error(`Invalid onion address format: ${onionAddr}`)
@@ -138,6 +147,8 @@ export function registerCallIpcHandlers(win: BrowserWindow): void {
   })
 
   ipcMain.handle('call:hang-up', async () => {
+    // Clear callee address on hang-up to prevent stale data on next call
+    hooks.onHangUp?.()
     await hangUp()
     return { ok: true }
   })

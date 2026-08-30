@@ -17,16 +17,22 @@ export default function Home() {
 
   useEffect(() => {
     let innerCleanup: (() => void) | null = null
+
+    const timeout = setTimeout(() => {
+      window.location.replace('/onboarding')
+    }, 8000)
+
     const cleanup = onIdentityReady(({ source, error }) => {
+      clearTimeout(timeout)
       cleanup() // one-shot
 
-      if (error === 'decryption-failed') {
+      if (error === 'decryption-failed' || source === '') {
         window.location.replace('/onboarding')
         return
       }
 
       const state = loadState()
-      if (source === '' || !state.onboardingDone || !state.registered) {
+      if (!state.onboardingDone || !state.registered) {
         window.location.replace('/onboarding')
         return
       }
@@ -36,12 +42,12 @@ export default function Home() {
 
       const gc = (window as any).ghostcall
       if (!gc) return
-      const cleanup1 = gc.onCallConnected?.(() => { window.location.href = '/call' })
-      const cleanup2 = gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
-      innerCleanup = () => { cleanup1?.(); cleanup2?.() }
+      const c1 = gc.onCallConnected?.(() => { window.location.href = '/call' })
+      const c2 = gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
+      innerCleanup = () => { c1?.(); c2?.() }
     })
 
-    return () => { cleanup(); innerCleanup?.() }
+    return () => { clearTimeout(timeout); cleanup(); innerCleanup?.() }
   }, [])
 
   async function goOnline() {

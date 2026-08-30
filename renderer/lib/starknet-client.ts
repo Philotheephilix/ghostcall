@@ -67,7 +67,10 @@ export async function registerHandle(
     num.toHex(kp.pkS.y),
     num.toHex(nostrPkFelt)
   )
-  await requireProvider().waitForTransaction(res.transaction_hash)
+  const receipt = await requireProvider().waitForTransaction(res.transaction_hash)
+  if ('execution_status' in receipt && (receipt as any).execution_status === 'REVERTED') {
+    throw new Error(`Transaction reverted: ${(receipt as any).revert_reason ?? 'unknown reason'}`)
+  }
   return res.transaction_hash as string
 }
 
@@ -112,7 +115,10 @@ export async function commitCall(callId: string | bigint): Promise<string> {
     requireAccount()
   )
   const res = await contract.commit_call(num.toHex(commitment))
-  await requireProvider().waitForTransaction(res.transaction_hash)
+  const receipt = await requireProvider().waitForTransaction(res.transaction_hash)
+  if ('execution_status' in receipt && (receipt as any).execution_status === 'REVERTED') {
+    throw new Error(`Transaction reverted: ${(receipt as any).revert_reason ?? 'unknown reason'}`)
+  }
   return res.transaction_hash as string
 }
 

@@ -33,7 +33,7 @@ files:
   - "!screenshots/**"
   - "!scripts/**"
   - "!contracts/**"
-  - "!node_modules/.cache/**"
+  - "!node_modules/**"
 
 mac:
   appId: io.ghostcall.app

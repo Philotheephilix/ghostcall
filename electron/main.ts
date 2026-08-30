@@ -18,7 +18,6 @@ if (!process.env.STARKNET_RPC_URL) {
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
 import { runIdentityStartupSequence, registerIdentityIpcHandlers, onAccountReady, handleZkeyCallback } from './identity-manager'
-import { sendShieldedPayment } from '../renderer/lib/strk20-payment'
 import type { Account } from 'starknet'
 
 // Session state — populated during the call flow:
@@ -39,8 +38,18 @@ const sessionState: SessionState = {
 let win: BrowserWindow | null = null
 
 // Populate sessionState.account whenever identity-manager initialises the client
-onAccountReady((account: Account) => {
+onAccountReady(async (account: Account) => {
   sessionState.account = account
+  // Derive viewing key from session private key so strk20:pay has a valid scalar
+  const { getSessionPrivKey } = await import('./identity-manager')
+  const { deriveStealthKeypairFromPrivKey } = await import('../renderer/lib/stealth-keys')
+  try {
+    const privKey = getSessionPrivKey()
+    const kp = deriveStealthKeypairFromPrivKey(privKey)
+    sessionState.viewingKey = kp.skV
+  } catch {
+    // identity not loaded yet — viewingKey stays 0n, will be set by starknet:register
+  }
 })
 
 // Single instance lock — required for Windows OAuth callback via second-instance event
@@ -52,7 +61,14 @@ if (!app.requestSingleInstanceLock()) {
 app.on('second-instance', (_e, argv) => {
   // Windows: OAuth redirect URL arrives in argv
   const url = argv.find((a: string) => a.startsWith('ghostcall://'))
-  if (url) handleZkeyCallback(url)
+  if (url) {
+    if (win) {
+      handleZkeyCallback(url)
+    } else {
+      // win not yet created — defer until after whenReady creates the window
+      app.once('browser-window-created', () => handleZkeyCallback(url))
+    }
+  }
   if (win) win.focus() // focus the existing window on any second-instance launch (including non-OAuth)
 })
 
@@ -142,8 +158,16 @@ app.whenReady().then(async () => {
     : `file://${path.join(__dirname, '../../renderer/out/index.html')}`
   win.loadURL(url)
 
-  // Register call IPC handlers
-  registerCallIpcHandlers(win)
+  // Register call IPC handlers — pass hooks to clear stale session state on each call
+  registerCallIpcHandlers(win, {
+    onInitiate: () => {
+      sessionState.calleeStealthAddr = ''  // clear stale address; populated by starknet:lookup for handle calls
+      sessionState.viewingKey = 0n
+    },
+    onHangUp: () => {
+      sessionState.calleeStealthAddr = ''
+    },
+  })
 
   // Register identity IPC handlers and run startup sequence on load
   registerIdentityIpcHandlers(win)
@@ -201,7 +225,10 @@ ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) =
 ipcMain.handle('starknet:lookup', async (_e, { handle }: { handle: string }) => {
   const { lookupHandle } = await import('../renderer/lib/starknet-client')
   const meta = await lookupHandle(handle)
-  // Store the nostr pubkey as a proxy for stealth addr (real stealth addr derived on payment)
+  // TODO (mainnet): replace with proper stealth address derivation using the ERC-5564 protocol.
+  // The real stealth address requires: generate random scalar r, compute r*G + pkV (from meta.pkVx/pkVy).
+  // For now, store the nostr routing pubkey as a placeholder — payment path must be updated
+  // before mainnet deployment to use full stealth key derivation from pkV and pkS fields.
   sessionState.calleeStealthAddr = '0x' + meta.nostrPubkey
   return meta
 })
@@ -240,11 +267,12 @@ ipcMain.handle('nostr:unsubscribe', async () => {
 
 // STRK20 payment IPC handler
 ipcMain.handle('strk20:pay', async (_e, { amount }: { amount: string }) => {
+  const { sendShieldedPayment } = await import('../renderer/lib/strk20-payment')
   if (!sessionState.account) {
     throw new Error('Starknet account not initialised — set STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY, STARKNET_RPC_URL in .env')
   }
   if (!sessionState.calleeStealthAddr) {
-    throw new Error('No callee stealth address in session — lookup must be called before payment')
+    throw new Error('No callee stealth address in session — starknet:lookup must be called before payment')
   }
   const txHash = await sendShieldedPayment(
     sessionState.calleeStealthAddr,

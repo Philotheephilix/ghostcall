@@ -1,5 +1,7 @@
 'use client'
 
+let _cachedIdentityReady: { source: string; address?: string; error?: string } | null = null
+
 const gc = () => (window as any).ghostcall
 
 export async function identityExists(): Promise<{ exists: boolean }> {
@@ -33,7 +35,15 @@ export async function identityZkeyCancel(): Promise<void> {
 export function onIdentityReady(
   cb: (data: { source: string; address?: string; error?: string }) => void
 ): () => void {
-  return gc().onIdentityReady(cb)
+  if (_cachedIdentityReady) {
+    const cached = _cachedIdentityReady
+    const id = setTimeout(() => cb(cached), 0)
+    return () => clearTimeout(id)
+  }
+  return gc().onIdentityReady((data: { source: string; address?: string; error?: string }) => {
+    _cachedIdentityReady = data
+    cb(data)
+  })
 }
 
 export function onZkeyResult(

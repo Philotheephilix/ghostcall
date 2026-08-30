@@ -20,13 +20,15 @@ export default function CallScreen() {
       startedRef.current = true
       startCapture().catch(console.error)
     }
+    let unsubFrame: (() => void) | undefined
     if (typeof gc.onInboundFrame === 'function') {
-      gc.onInboundFrame((frame: unknown) => playInboundFrame(frame as ArrayBuffer))
+      unsubFrame = gc.onInboundFrame((frame: unknown) => playInboundFrame(frame as ArrayBuffer))
     }
     timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
       stopCapture()
+      unsubFrame?.()
     }
   }, [])
 

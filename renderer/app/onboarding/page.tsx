@@ -122,14 +122,18 @@ function SeedGenerateSubFlow({
   words,
   onWordsReady,
   onVerify,
+  onError,
 }: {
   words: string[]
   onWordsReady: (w: string[]) => void
   onVerify: () => void
+  onError: (msg: string) => void
 }) {
   useEffect(() => {
     if (words.length === 0) {
-      identityCreate().then(({ words: w }) => onWordsReady(w))
+      identityCreate()
+        .then(({ words: w }) => onWordsReady(w))
+        .catch((e: Error) => onError(e.message))
     }
   }, [])
 
@@ -198,14 +202,17 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
 
   // On mount: check if identity.enc already exists → skip to done or show decrypt-error
   useEffect(() => {
-    identityExists().then(({ exists }) => {
-      if (exists) {
-        identityLoad().then(({ address: addr }) => {
-          setAddress(addr)
-          setSub('seed-done')
-        }).catch(() => setSub('decrypt-error'))
-      }
-    })
+    identityExists()
+      .then(({ exists }) => {
+        if (exists) {
+          return identityLoad()
+            .then(({ address: addr }) => { setAddress(addr); setSub('seed-done') })
+            .catch(() => setSub('decrypt-error'))
+        }
+      })
+      .catch(() => {
+        setErr('Could not check identity — restart the app')
+      })
   }, [])
 
   // Listen for zKey result push event — only active when waiting
@@ -281,6 +288,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
         words={words}
         onWordsReady={setWords}
         onVerify={() => setSub('seed-verify')}
+        onError={(msg) => { setErr(msg); setSub('entry') }}
       />
     )
   }
@@ -325,10 +333,14 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
         </div>
         <SeedImport
           onImport={async (w) => {
-            const { address: addr } = await identityImport(w)
-            setAddress(addr)
-            saveState({ identitySource: 'seed', walletAddress: addr })
-            setSub('seed-import-done')
+            try {
+              const { address: addr } = await identityImport(w)
+              setAddress(addr)
+              saveState({ identitySource: 'seed', walletAddress: addr })
+              setSub('seed-import-done')
+            } catch (e) {
+              setErr((e as Error).message)
+            }
           }}
         />
         <button type="button" className="btn-text" style={{ fontSize: 13, color: 'var(--label-tertiary)' }}
@@ -414,7 +426,8 @@ function HandleStep({ onNext, torStatus }: { onNext: () => void; torStatus: Retu
     try {
       const gc = (window as any).ghostcall
       const txHash = await gc.registerStealth(handle.trim())
-      const hash = typeof txHash === 'string' ? txHash : txHash?.transaction_hash ?? ''
+      const raw = typeof txHash === 'string' ? txHash : txHash?.transaction_hash ?? ''
+      const hash = raw === 'already-registered' ? '' : raw
       saveState({ handle: handle.trim(), registered: true, registrationTx: hash })
       onNext()
     } catch (e) {

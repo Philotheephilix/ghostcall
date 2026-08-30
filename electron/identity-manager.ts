@@ -10,9 +10,8 @@ import { initStarknetClient, getAccount } from '../renderer/lib/starknet-client'
 import { ec, hash, CallData } from 'starknet'
 import type { Account } from 'starknet'
 
-// OpenZeppelin Cairo 0 account class hash — the most widely deployed account
-// type on Starknet Sepolia and Mainnet. Used to derive the counterfactual
-// address from a public key before the account is deployed.
+// OpenZeppelin Cairo 1 (Sierra) account class hash — pre-deployed on Starknet Sepolia/Mainnet.
+// Used to derive the counterfactual address from a public key before the account is deployed.
 const OZ_ACCOUNT_CLASS_HASH = '0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f'
 
 // ── zKey pending callback (macOS open-url can fire before win is ready) ───
@@ -256,7 +255,8 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
 
   // 1. .env silent path — private key set directly in environment
   if (process.env.STARKNET_PRIVATE_KEY && process.env.STARKNET_ACCOUNT_ADDRESS) {
-    _sessionPrivKey = BigInt(process.env.STARKNET_PRIVATE_KEY)
+    const rawKey = process.env.STARKNET_PRIVATE_KEY
+    _sessionPrivKey = BigInt(rawKey.startsWith('0x') ? rawKey : '0x' + rawKey)
     initStarknetClient(rpcUrl, process.env.STARKNET_ACCOUNT_ADDRESS, process.env.STARKNET_PRIVATE_KEY)
     notifyAccountReady()
     win.webContents.send('identity:ready', { source: 'env', address: process.env.STARKNET_ACCOUNT_ADDRESS })
