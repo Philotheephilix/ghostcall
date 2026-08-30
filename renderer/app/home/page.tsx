@@ -18,33 +18,52 @@ export default function Home() {
   useEffect(() => {
     let innerCleanup: (() => void) | null = null
 
-    const timeout = setTimeout(() => {
-      window.location.replace('/onboarding')
-    }, 8000)
-
-    const cleanup = onIdentityReady(({ source, error }) => {
-      clearTimeout(timeout)
-      cleanup() // one-shot
-
-      if (error === 'decryption-failed' || source === '') {
-        window.location.replace('/onboarding')
-        return
-      }
-
-      const state = loadState()
-      if (!state.onboardingDone || !state.registered) {
-        window.location.replace('/onboarding')
-        return
-      }
-
-      setHandle(state.handle)
-      setReady(true)
-
+    function wireCallListeners() {
       const gc = (window as any).ghostcall
       if (!gc) return
       const c1 = gc.onCallConnected?.(() => { window.location.href = '/call' })
       const c2 = gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
       innerCleanup = () => { c1?.(); c2?.() }
+    }
+
+    // If onboarding is already done, render immediately from localStorage.
+    // identity:ready will arrive shortly and wire call listeners — no need to block rendering.
+    const state = loadState()
+    if (state.onboardingDone && state.registered) {
+      setHandle(state.handle)
+      setReady(true)
+    }
+
+    // Timeout fallback: redirect to onboarding only if we never got identity:ready
+    // AND onboarding was not already done in localStorage.
+    const timeout = setTimeout(() => {
+      const s = loadState()
+      if (!s.onboardingDone || !s.registered) {
+        window.location.replace('/onboarding')
+      }
+    }, 15000)
+
+    const cleanup = onIdentityReady(({ source, error }) => {
+      clearTimeout(timeout)
+      cleanup() // one-shot
+
+      if (error === 'decryption-failed') {
+        window.location.replace('/onboarding')
+        return
+      }
+
+      if (source === '') {
+        const s = loadState()
+        if (!s.onboardingDone || !s.registered) {
+          window.location.replace('/onboarding')
+          return
+        }
+      }
+
+      // Identity loaded — wire call listeners now
+      setHandle(loadState().handle)
+      setReady(true)
+      wireCallListeners()
     })
 
     return () => { clearTimeout(timeout); cleanup(); innerCleanup?.() }
