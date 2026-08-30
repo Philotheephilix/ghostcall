@@ -29,7 +29,8 @@ export function initStarknetClient(
   accountAddress: string,
   privateKey: string
 ): void {
-  _provider = new RpcProvider({ nodeUrl: rpcUrl })
+  // blockIdentifier: 'latest' — many public nodes don't support 'pending'
+  _provider = new RpcProvider({ nodeUrl: rpcUrl, blockIdentifier: 'latest' })
   _account = new Account(_provider, accountAddress, privateKey)
 }
 
