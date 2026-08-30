@@ -41,7 +41,7 @@ app.on('second-instance', (_e, argv) => {
   // Windows: OAuth redirect URL arrives in argv
   const url = argv.find((a: string) => a.startsWith('ghostcall://'))
   if (url) handleZkeyCallback(url)
-  if (win) win.focus()
+  if (win) win.focus() // focus the existing window on any second-instance launch (including non-OAuth)
 })
 
 app.setAsDefaultProtocolClient('ghostcall')

@@ -1,11 +1,16 @@
 import path from 'path'
 import fs from 'fs'
+import crypto from 'crypto'
 import { app, ipcMain, safeStorage, shell, BrowserWindow } from 'electron'
 import { generateMnemonic, validateMnemonic, mnemonicToSeedSync } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { HDKey } from '@scure/bip32'
+import { ProjectivePoint } from '@scure/starknet'
 import { initStarknetClient, getAccount } from '../renderer/lib/starknet-client'
 import type { Account } from 'starknet'
+
+// ── zKey pending callback (macOS open-url can fire before win is ready) ───
+let _pendingCallbackUrl: string | null = null
 
 // ── zKey session state ─────────────────────────────────────────────────────
 
@@ -43,8 +48,6 @@ function cancelZkeySession(): void {
 const STARK_ORDER = BigInt('0x0800000000000011000000000000000000000000000000000000000000000001')
 
 function generateZkeySession(): { authUrl: string } {
-  const crypto = require('crypto') as typeof import('crypto')
-
   // Session keypair (ephemeral — held in memory for this OAuth session only; never logged or sent to renderer)
   const sessionKeyBytes = crypto.randomBytes(32)
   const sessionPrivKey = BigInt('0x' + sessionKeyBytes.toString('hex')) % STARK_ORDER
@@ -74,7 +77,12 @@ function generateZkeySession(): { authUrl: string } {
 }
 
 export async function handleZkeyCallback(url: string): Promise<void> {
-  if (!zkeySession.win) return
+  if (!zkeySession.win) {
+    // macOS open-url can fire before registerIdentityIpcHandlers sets zkeySession.win.
+    // Store for replay once runIdentityStartupSequence has a live win reference.
+    _pendingCallbackUrl = url
+    return
+  }
   const win = zkeySession.win
   try {
     const parsed = new URL(url)
@@ -119,11 +127,17 @@ export async function handleZkeyCallback(url: string): Promise<void> {
     if (!saltRes.ok) throw new Error(`Salt request failed: ${saltRes.status}`)
     const { salt } = await saltRes.json() as { salt: string }
 
+    // Derive the Stark curve public key from the ephemeral session private key.
+    // The private key scalar MUST NOT leave the process — only the x-coordinate of the public point is sent.
+    const sessionPrivBig = BigInt('0x' + zkeySession.sessionPrivKeyHex)
+    const sessionPubPoint = ProjectivePoint.BASE.multiply(sessionPrivBig)
+    const sessionPubKeyHex = sessionPubPoint.x.toString(16).padStart(64, '0')
+
     // TODO: replace with actual zKey endpoint — ZKP prove
     const proveRes = await fetch('https://api.zkey.org/zkp/prove', {
       method: 'POST', signal,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_token, salt, session_pub_key: '0x' + zkeySession.sessionPrivKeyHex }),
+      body: JSON.stringify({ id_token, salt, session_pub_key: '0x' + sessionPubKeyHex }),
     })
     if (!proveRes.ok) throw new Error(`ZKP proof failed: ${proveRes.status}`)
 
@@ -135,8 +149,8 @@ export async function handleZkeyCallback(url: string): Promise<void> {
     win.webContents.send('identity:zkey-result', { ok: true, address })
     cancelZkeySession()
   } catch (e: unknown) {
+    if (e instanceof Error && e.name === 'AbortError') return // cancelled — do not emit an error event
     const msg = e instanceof Error ? e.message : String(e)
-    if (msg === 'AbortError' || msg.includes('abort')) return // cancelled
     zkeySession.win?.webContents.send('identity:zkey-result', { ok: false, error: msg })
     cancelZkeySession()
   }
@@ -221,6 +235,7 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
     initStarknetClient(rpcUrl, process.env.STARKNET_ACCOUNT_ADDRESS, process.env.STARKNET_PRIVATE_KEY)
     notifyAccountReady()
     win.webContents.send('identity:ready', { source: 'env', address: process.env.STARKNET_ACCOUNT_ADDRESS })
+    replayPendingCallback()
     return
   }
 
@@ -239,11 +254,22 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
       const errorType = msg.includes('STARKNET_ACCOUNT_ADDRESS') ? 'missing-env' : 'decryption-failed'
       win.webContents.send('identity:ready', { source: '', error: errorType })
     }
+    replayPendingCallback()
     return
   }
 
   // 3. No identity found — renderer must trigger onboarding
   win.webContents.send('identity:ready', { source: '', address: '' })
+  replayPendingCallback()
+}
+
+/** Replay any OAuth callback URL that arrived before zkeySession.win was set (macOS open-url race). */
+function replayPendingCallback(): void {
+  if (_pendingCallbackUrl) {
+    const url = _pendingCallbackUrl
+    _pendingCallbackUrl = null
+    handleZkeyCallback(url)
+  }
 }
 
 // ── IPC handlers ───────────────────────────────────────────────────────────
