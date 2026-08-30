@@ -31,6 +31,8 @@ module.exports = {
     '^nostr-tools/pure$': '<rootDir>/node_modules/nostr-tools/lib/esm/pure.js',
     '^nostr-tools/nip59$': '<rootDir>/node_modules/nostr-tools/lib/esm/nip59.js',
     '^nostr-tools/nip44$': '<rootDir>/node_modules/nostr-tools/lib/esm/nip44.js',
+    // @scure/bip39 wordlist subpath exports (strip optional .js extension)
+    '^@scure/bip39/wordlists/english(\\.js)?$': '<rootDir>/node_modules/@scure/bip39/wordlists/english.js',
   },
   testMatch: [
     '**/__tests__/**/*.test.ts',
