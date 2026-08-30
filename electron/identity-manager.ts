@@ -143,6 +143,7 @@ export async function handleZkeyCallback(url: string): Promise<void> {
 
     // TODO: parse sub/aud/iss from id_token and compute H(sub,aud,iss,salt) per zKey spec
     const address = process.env.STARKNET_ACCOUNT_ADDRESS ?? '0xzkey_placeholder'
+    _sessionPrivKey = BigInt('0x' + zkeySession.sessionPrivKeyHex)
     initStarknetClient(rpcUrl, address, '0x' + zkeySession.sessionPrivKeyHex)
     notifyAccountReady()
 
@@ -155,6 +156,16 @@ export async function handleZkeyCallback(url: string): Promise<void> {
     zkeySession.win?.webContents.send('identity:zkey-result', { ok: false, error: msg })
     cancelZkeySession()
   }
+}
+
+// ── Session private key accessor ───────────────────────────────────────────
+// Stored whenever initStarknetClient is called — lets starknet:register
+// derive the stealth keypair from the actual session key instead of env fallback.
+let _sessionPrivKey: bigint = 0n
+
+export function getSessionPrivKey(): bigint {
+  if (_sessionPrivKey === 0n) throw new Error('No identity loaded — complete onboarding first')
+  return _sessionPrivKey
 }
 
 // ── Session account setter (called by main.ts after runIdentityStartupSequence) ──
@@ -233,6 +244,7 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
 
   // 1. .env silent path — private key set directly in environment
   if (process.env.STARKNET_PRIVATE_KEY && process.env.STARKNET_ACCOUNT_ADDRESS) {
+    _sessionPrivKey = BigInt(process.env.STARKNET_PRIVATE_KEY)
     initStarknetClient(rpcUrl, process.env.STARKNET_ACCOUNT_ADDRESS, process.env.STARKNET_PRIVATE_KEY)
     notifyAccountReady()
     win.webContents.send('identity:ready', { source: 'env', address: process.env.STARKNET_ACCOUNT_ADDRESS })
@@ -246,6 +258,7 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
       const privKey = derivePrivKeyFromMnemonic(mnemonic)
       const privKeyHex = privKey.toString(16).padStart(64, '0')
       const address = deriveAddress(privKeyHex)
+      _sessionPrivKey = privKey
       initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
       notifyAccountReady()
       win.webContents.send('identity:ready', { source: 'seed', address })
@@ -292,11 +305,11 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('identity:save', (_e, { words }: { words: string[] }) => {
     const mnemonic = wordsToMnemonic(words)
-    // derivePrivKeyFromMnemonic validates and throws uniformly on bad input
     const privKey = derivePrivKeyFromMnemonic(mnemonic)
     const privKeyHex = privKey.toString(16).padStart(64, '0')
     const address = deriveAddress(privKeyHex)
     const rpcUrl = process.env.STARKNET_RPC_URL ?? ''
+    _sessionPrivKey = privKey
     initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
     notifyAccountReady()
     saveMnemonic(mnemonic)
@@ -305,11 +318,11 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('identity:import', (_e, { words }: { words: string[] }) => {
     const mnemonic = wordsToMnemonic(words)
-    // derivePrivKeyFromMnemonic validates and throws uniformly on bad input
     const privKey = derivePrivKeyFromMnemonic(mnemonic)
     const privKeyHex = privKey.toString(16).padStart(64, '0')
     const address = deriveAddress(privKeyHex)
     const rpcUrl = process.env.STARKNET_RPC_URL ?? ''
+    _sessionPrivKey = privKey
     initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
     notifyAccountReady()
     saveMnemonic(mnemonic)
@@ -323,6 +336,7 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
     const privKeyHex = privKey.toString(16).padStart(64, '0')
     const address = deriveAddress(privKeyHex)
     const rpcUrl = process.env.STARKNET_RPC_URL ?? ''
+    _sessionPrivKey = privKey
     initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
     notifyAccountReady()
     return { address, source: 'seed' }

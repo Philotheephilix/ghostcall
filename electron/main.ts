@@ -135,8 +135,9 @@ ipcMain.handle('tor:remove-onion', async (_e, { serviceId }: { serviceId: string
 ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) => {
   const { getAccount, registerHandle, isRegistered } = await import('../renderer/lib/starknet-client')
   const { deriveStealthKeypairFromPrivKey } = await import('../renderer/lib/stealth-keys')
+  const { getSessionPrivKey } = await import('./identity-manager')
   getAccount() // ensure client initialised
-  const kp = deriveStealthKeypairFromPrivKey(BigInt(process.env.STARKNET_PRIVATE_KEY ?? '0x1'))
+  const kp = deriveStealthKeypairFromPrivKey(getSessionPrivKey())
   sessionState.viewingKey = kp.skV
   // If the handle is already registered, skip the tx (idempotent onboarding)
   if (await isRegistered(handle)) {
