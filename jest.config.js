@@ -5,7 +5,7 @@ module.exports = {
   setupFilesAfterEnv: ['@testing-library/jest-dom'],
   // Transform all ESM-only packages and their nested copies under nostr-tools
   transformIgnorePatterns: [
-    'node_modules/(?!(nostr-tools/node_modules/@noble|@noble|@scure|nostr-tools)/)',
+    'node_modules/(?!(nostr-tools/node_modules/@noble|@noble|@scure|nostr-tools|@scure)/)',
   ],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
