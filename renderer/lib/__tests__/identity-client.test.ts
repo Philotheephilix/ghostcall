@@ -11,22 +11,18 @@ const mockIdentityZkeyCancel = jest.fn().mockResolvedValue(undefined)
 const mockOnIdentityReady = jest.fn().mockReturnValue(() => {})
 const mockOnZkeyResult = jest.fn().mockReturnValue(() => {})
 
-Object.defineProperty(global, 'window', {
-  value: {
-    ghostcall: {
-      identityExists: mockIdentityExists,
-      identityCreate: mockIdentityCreate,
-      identitySave: mockIdentitySave,
-      identityImport: mockIdentityImport,
-      identityLoad: mockIdentityLoad,
-      identityZkeyBegin: mockIdentityZkeyBegin,
-      identityZkeyCancel: mockIdentityZkeyCancel,
-      onIdentityReady: mockOnIdentityReady,
-      onZkeyResult: mockOnZkeyResult,
-    },
-  },
-  writable: true, configurable: true,
-})
+// jsdom provides window — assign ghostcall directly on the existing object
+;(window as any).ghostcall = {
+  identityExists: mockIdentityExists,
+  identityCreate: mockIdentityCreate,
+  identitySave: mockIdentitySave,
+  identityImport: mockIdentityImport,
+  identityLoad: mockIdentityLoad,
+  identityZkeyBegin: mockIdentityZkeyBegin,
+  identityZkeyCancel: mockIdentityZkeyCancel,
+  onIdentityReady: mockOnIdentityReady,
+  onZkeyResult: mockOnZkeyResult,
+}
 
 import {
   identityExists, identityCreate, identitySave, identityImport,

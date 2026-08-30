@@ -1,4 +1,7 @@
 /**
+ * @jest-environment node
+ */
+/**
  * Unit tests for starknet-client.ts
  * Mocks starknet.js at module level to verify calldata construction.
  */

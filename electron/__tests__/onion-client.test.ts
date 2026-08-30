@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import * as net from 'net'
 import { connectToOnion } from '../onion-client'
 

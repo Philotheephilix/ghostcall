@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { TorManager } from '../tor-manager'
 
 describe('TorManager', () => {

@@ -55,10 +55,8 @@ Object.defineProperty(global, 'navigator', {
 Object.defineProperty(global, 'AudioContext', { value: MockAudioContext, writable: true, configurable: true })
 
 const mockSendAudioFrame = jest.fn()
-Object.defineProperty(global, 'window', {
-  value: { ghostcall: { sendAudioFrame: mockSendAudioFrame } },
-  writable: true, configurable: true,
-})
+// jsdom provides window — assign ghostcall directly
+;(global as any).window = Object.assign(window, { ghostcall: { sendAudioFrame: mockSendAudioFrame } })
 
 // ─── Import after mocks ─────────────────────────────────────────────────────
 

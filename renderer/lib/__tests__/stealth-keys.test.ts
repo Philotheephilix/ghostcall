@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { deriveStealthKeypair, deriveHandleHash, deriveSessionKey } from '../stealth-keys'
 
 describe('deriveStealthKeypair', () => {

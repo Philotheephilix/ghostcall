@@ -17,12 +17,11 @@ const localStorageMock = (() => {
   }
 })()
 
-Object.defineProperty(global, 'localStorage', {
+// jsdom provides window and localStorage — patch localStorage on the existing object
+Object.defineProperty(window, 'localStorage', {
+  writable: true,
+  configurable: true,
   value: localStorageMock,
-})
-
-Object.defineProperty(global, 'window', {
-  value: { localStorage: localStorageMock },
 })
 
 beforeEach(() => {

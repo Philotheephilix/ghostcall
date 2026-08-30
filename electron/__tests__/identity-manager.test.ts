@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 // identity-manager.test.ts
 // Tests the pure derivation logic (not IPC handlers — those need Electron)
 

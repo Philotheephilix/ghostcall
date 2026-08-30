@@ -1,4 +1,7 @@
 /**
+ * @jest-environment node
+ */
+/**
  * Unit tests for strk20-payment.ts
  *
  * Three scenarios:
