@@ -235,7 +235,6 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
     initStarknetClient(rpcUrl, process.env.STARKNET_ACCOUNT_ADDRESS, process.env.STARKNET_PRIVATE_KEY)
     notifyAccountReady()
     win.webContents.send('identity:ready', { source: 'env', address: process.env.STARKNET_ACCOUNT_ADDRESS })
-    replayPendingCallback()
     return
   }
 
@@ -254,13 +253,11 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
       const errorType = msg.includes('STARKNET_ACCOUNT_ADDRESS') ? 'missing-env' : 'decryption-failed'
       win.webContents.send('identity:ready', { source: '', error: errorType })
     }
-    replayPendingCallback()
     return
   }
 
   // 3. No identity found — renderer must trigger onboarding
   win.webContents.send('identity:ready', { source: '', address: '' })
-  replayPendingCallback()
 }
 
 /** Replay any OAuth callback URL that arrived before zkeySession.win was set (macOS open-url race). */
@@ -345,4 +342,8 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
   ipcMain.handle('identity:zkey-cancel', () => {
     cancelZkeySession()
   })
+
+  // Replay any OAuth callback URL that arrived before zkeySession.win was set (macOS open-url race).
+  // Must run after zkeySession.win is assigned above — guaranteed at this point.
+  replayPendingCallback()
 }
