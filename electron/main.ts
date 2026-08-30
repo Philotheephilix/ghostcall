@@ -5,6 +5,7 @@ import path from 'path'
 require('dotenv').config({ path: path.join(__dirname, '../../.env') })
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
+import { runIdentityStartupSequence, registerIdentityIpcHandlers, onAccountReady } from './identity-manager'
 import { sendShieldedPayment } from '../renderer/lib/strk20-payment'
 import type { Account } from 'starknet'
 
@@ -25,9 +26,13 @@ const sessionState: SessionState = {
 
 let win: BrowserWindow | null = null
 
+// Populate sessionState.account whenever identity-manager initialises the client
+onAccountReady((account: Account) => {
+  sessionState.account = account
+})
+
 app.whenReady().then(async () => {
-  // Starknet client init is now handled by runIdentityStartupSequence
-  // (called after win is created) — do not call initStarknetClient here.
+  // Starknet client init is handled by runIdentityStartupSequence below.
 
   // Request macOS system-level microphone access
   if (process.platform === 'darwin') {
@@ -67,6 +72,10 @@ app.whenReady().then(async () => {
 
   // Register call IPC handlers
   registerCallIpcHandlers(win)
+
+  // Register identity IPC handlers and run startup sequence
+  registerIdentityIpcHandlers(win)
+  await runIdentityStartupSequence(win)
 
   // Start Tor (non-blocking — app works without Tor, calls require it)
   torManager.start().then(() => {

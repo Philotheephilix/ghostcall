@@ -4,7 +4,25 @@ import { app, ipcMain, safeStorage, BrowserWindow } from 'electron'
 import { generateMnemonic, validateMnemonic, mnemonicToSeedSync } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { HDKey } from '@scure/bip32'
-import { initStarknetClient } from '../renderer/lib/starknet-client'
+import { initStarknetClient, getAccount } from '../renderer/lib/starknet-client'
+import type { Account } from 'starknet'
+
+// ── Session account setter (called by main.ts after runIdentityStartupSequence) ──
+// main.ts owns SessionState; identity-manager calls back via this setter so
+// sessionState.account stays populated for strk20:pay.
+let _onAccountReady: ((account: Account) => void) | null = null
+
+export function onAccountReady(cb: (account: Account) => void): void {
+  _onAccountReady = cb
+}
+
+function notifyAccountReady(): void {
+  try {
+    _onAccountReady?.(getAccount())
+  } catch {
+    // getAccount throws if initStarknetClient was not called — ignore silently
+  }
+}
 
 // ── Pure helpers (exported for tests) ──────────────────────────────────────
 
@@ -66,6 +84,7 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
   // 1. .env silent path — private key set directly in environment
   if (process.env.STARKNET_PRIVATE_KEY && process.env.STARKNET_ACCOUNT_ADDRESS) {
     initStarknetClient(rpcUrl, process.env.STARKNET_ACCOUNT_ADDRESS, process.env.STARKNET_PRIVATE_KEY)
+    notifyAccountReady()
     win.webContents.send('identity:ready', { source: 'env', address: process.env.STARKNET_ACCOUNT_ADDRESS })
     return
   }
@@ -78,9 +97,12 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
       const privKeyHex = privKey.toString(16).padStart(64, '0')
       const address = deriveAddress(privKeyHex)
       initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
+      notifyAccountReady()
       win.webContents.send('identity:ready', { source: 'seed', address })
-    } catch {
-      win.webContents.send('identity:ready', { source: '', error: 'decryption-failed' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const errorType = msg.includes('STARKNET_ACCOUNT_ADDRESS') ? 'missing-env' : 'decryption-failed'
+      win.webContents.send('identity:ready', { source: '', error: errorType })
     }
     return
   }
