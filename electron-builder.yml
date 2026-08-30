@@ -4,14 +4,36 @@ copyright: "Copyright © 2024 Philotheephilix. All rights reserved."
 icon: build/icon.png
 
 files:
-  - dist/**
+  # Electron main process bundle
+  - dist/electron/**
+  # Next.js static export (built by `next build renderer`)
   - renderer/out/**
+  # Build assets (icon)
   - build/icon.icns
   - build/icon.png
+  # Exclude everything else
+  - "!dist/mac*/**"
+  - "!dist/win*/**"
+  - "!dist/linux*/**"
+  - "!dist/*.dmg"
+  - "!dist/*.zip"
+  - "!dist/*.blockmap"
+  - "!dist/*.yml"
+  - "!renderer/app/**"
+  - "!renderer/components/**"
+  - "!renderer/lib/**"
+  - "!renderer/hooks/**"
+  - "!renderer/styles/**"
+  - "!renderer/.next/**"
   - "!**/__tests__/**"
   - "!**/*.test.ts"
   - "!**/*.test.tsx"
-  - "!**/node_modules/.cache/**"
+  - "!specs/**"
+  - "!docs/**"
+  - "!screenshots/**"
+  - "!scripts/**"
+  - "!contracts/**"
+  - "!node_modules/.cache/**"
 
 mac:
   appId: io.ghostcall.app
@@ -25,7 +47,6 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSMicrophoneUsageDescription: "GhostCall needs microphone access for encrypted voice calls."
-    NSBluetoothAlwaysUsageDescription: "Not used."
     CFBundleDisplayName: GhostCall
     CFBundleShortVersionString: "0.1.0"
     CFBundleURLTypes:

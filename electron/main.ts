@@ -87,7 +87,7 @@ app.whenReady().then(async () => {
 
   const url = process.env.NODE_ENV === 'development'
     ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../renderer/out/index.html')}`
+    : `file://${path.join(__dirname, '../../renderer/out/index.html')}`
   win.loadURL(url)
 
   // Register call IPC handlers

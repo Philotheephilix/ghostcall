@@ -3,7 +3,9 @@ const nextConfig = {
   output: 'export',
   distDir: 'out',
   images: { unoptimized: true },
-  // Disable server features not available in static Electron context
+  // Relative asset paths so file:// loading works in Electron
+  // (absolute /_next/... paths don't resolve against file:// origins)
+  assetPrefix: process.env.NODE_ENV === 'production' ? '.' : undefined,
   trailingSlash: false,
 }
 
