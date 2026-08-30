@@ -27,7 +27,7 @@ export default function SeedImport({ onImport }: Props) {
     setErrors(next)
   }
 
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>, startIdx: number) {
+  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
     // Get text from clipboardData, handling both real events and test mocks
     let text = ''
     if (e.clipboardData?.getData) {
@@ -83,7 +83,7 @@ export default function SeedImport({ onImport }: Props) {
           value={words[idx]}
           onChange={e => setWord(idx, e.target.value)}
           onBlur={() => validateWord(idx)}
-          onPaste={e => handlePaste(e, idx)}
+          onPaste={handlePaste}
         />
         {errors[idx] && (
           <div style={{ fontSize: 11, color: 'var(--system-red)', marginTop: 2 }}>invalid word</div>

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import SeedImport from '../SeedImport'
 
@@ -17,28 +17,42 @@ test('Restore button is disabled when inputs are empty', () => {
   expect(screen.getByRole('button', { name: /restore/i })).toBeDisabled()
 })
 
-test('paste of 12 valid BIP39 words fills all inputs', () => {
+test('paste of 12 valid BIP39 words fills all inputs', async () => {
   render(<SeedImport onImport={jest.fn()} />)
-  expect(screen.getAllByRole('textbox')).toHaveLength(12)
-  // Verify paste event handler exists by checking onPaste is in the component
+  const phrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
   const inputs = screen.getAllByRole('textbox')
-  expect(inputs[0]).toHaveAttribute('type', 'text')
+  fireEvent.paste(inputs[0], {
+    clipboardData: { getData: () => phrase },
+  })
+  await waitFor(() => {
+    const updatedInputs = screen.getAllByRole('textbox')
+    expect((updatedInputs[0] as HTMLInputElement).value).toBe('abandon')
+    expect((updatedInputs[11] as HTMLInputElement).value).toBe('about')
+  })
 })
 
-test('paste of wrong word count shows error', () => {
+test('paste of wrong word count shows error', async () => {
   render(<SeedImport onImport={jest.fn()} />)
-  // The component has paste error display logic
-  // Verify the error message element exists in the DOM structure
-  expect(screen.getByRole('button', { name: /restore/i })).toBeInTheDocument()
+  const inputs = screen.getAllByRole('textbox')
+  fireEvent.paste(inputs[0], {
+    clipboardData: { getData: () => 'only three words here' },
+  })
+  await waitFor(() => {
+    expect(screen.getByText(/paste must be exactly 12 words/i)).toBeInTheDocument()
+  })
 })
 
-test('calls onImport with words when Restore clicked', () => {
+test('calls onImport with words when Restore clicked', async () => {
   const onImport = jest.fn().mockResolvedValue(undefined)
   render(<SeedImport onImport={onImport} />)
-
-  // Verify button exists and calls onImport when clicked
-  // (Note: full e2e testing of paste and button enable requires better testing utilities)
-  const button = screen.getByRole('button', { name: /restore/i })
-  expect(button).toBeInTheDocument()
-  expect(button).toBeDisabled()
+  const inputs = screen.getAllByRole('textbox')
+  const phrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+  fireEvent.paste(inputs[0], { clipboardData: { getData: () => phrase } })
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: /restore/i })).not.toBeDisabled()
+  })
+  fireEvent.click(screen.getByRole('button', { name: /restore/i }))
+  await waitFor(() => {
+    expect(onImport).toHaveBeenCalledWith(phrase.split(' '))
+  })
 })
