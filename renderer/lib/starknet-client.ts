@@ -33,10 +33,6 @@ export function initStarknetClient(
   _account = new Account(_provider, accountAddress, privateKey)
 }
 
-export function getProvider(): RpcProvider {
-  return requireProvider()
-}
-
 export function getAccount(): Account {
   return requireAccount()
 }

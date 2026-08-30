@@ -102,75 +102,50 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 }
 
 // ── Wallet ─────────────────────────────────────────────────────────────────
+// In Electron, browser wallet extensions (Argent X, Braavos) are not available.
+// Identity keys are derived from STARKNET_PRIVATE_KEY in .env — no external wallet needed.
 function WalletStep({ onNext }: { onNext: () => void }) {
-  const [connecting, setConnecting] = useState(false)
-  const [err, setErr] = useState('')
-
-  async function connectWallet(devMode: boolean) {
-    setConnecting(true)
-    setErr('')
-    try {
-      if (devMode) {
-        saveState({ walletConnected: true, walletAddress: 'dev-mode' })
-      } else {
-        const starknet = (window as any).starknet
-        if (!starknet?.enable) throw new Error('No Starknet wallet found. Install Argent X or Braavos.')
-        await starknet.enable()
-        const addr = starknet.selectedAddress ?? starknet.account?.address ?? ''
-        saveState({ walletConnected: true, walletAddress: addr })
-      }
-      onNext()
-    } catch (e) {
-      setErr((e as Error).message)
-    } finally { setConnecting(false) }
+  function confirm() {
+    // Account address from .env is used by the main process; store a sentinel
+    // so later steps can distinguish "env-configured" from "dev-mode no keys"
+    const envAddr = process.env.NEXT_PUBLIC_STARKNET_ACCOUNT_ADDRESS ?? ''
+    saveState({ walletConnected: true, walletAddress: envAddr || 'dev-mode' })
+    onNext()
   }
 
-  const wallets = [
-    { name: 'Argent X',  sub: 'Most popular Starknet wallet', dev: false },
-    { name: 'Braavos',   sub: 'Hardware security module',     dev: false },
-    { name: 'Dev mode',  sub: 'No wallet — testing only',     dev: true  },
-  ]
+  const hasEnv = !!(process.env.NEXT_PUBLIC_STARKNET_ACCOUNT_ADDRESS)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32, width: '100%', maxWidth: 360 }}>
       <div style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>Connect wallet</h2>
+        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>Identity keys</h2>
         <p style={{ fontSize: 15, color: 'var(--label-secondary)' }}>
-          Your Starknet wallet signs a message to derive your private identity keys. Nothing is sent on-chain yet.
+          Your Starknet private key (from <code style={{ fontSize: 13 }}>.env</code>) derives your identity keypair locally. Nothing is sent on-chain yet.
         </p>
       </div>
 
-      {/* Wallet options */}
-      <div className="glass-card" style={{ width: '100%', padding: 0, overflow: 'hidden' }}>
-        {wallets.map((w, i) => (
-          <div key={w.name}>
-            {i > 0 && <div className="divider" />}
-            <button
-              onClick={() => connectWallet(w.dev)}
-              disabled={connecting}
-              style={{
-                width: '100%', padding: '16px 20px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                transition: 'background 120ms',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-thin)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <div style={{ textAlign: 'left' }}>
-                <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-primary)', marginBottom: 2 }}>{w.name}</p>
-                <p style={{ fontSize: 12, color: 'var(--label-tertiary)' }}>{w.sub}</p>
-              </div>
-              <span style={{ fontSize: 18, color: 'var(--label-quaternary)' }}>›</span>
-            </button>
+      <div className="glass-card" style={{ width: '100%', padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 22 }}>{hasEnv ? '🔑' : '⚠️'}</span>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--label-primary)', marginBottom: 2 }}>
+              {hasEnv ? 'Account configured' : 'No account configured'}
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--label-tertiary)' }}>
+              {hasEnv
+                ? 'Keys loaded from .env — ready to derive identity'
+                : 'Set STARKNET_PRIVATE_KEY in .env to enable on-chain features'}
+            </p>
           </div>
-        ))}
+        </div>
       </div>
 
-      {err && <p style={{ fontSize: 12, color: 'var(--system-red)', fontFamily: 'var(--font-mono)' }}>{err}</p>}
+      <button className="btn-primary" onClick={confirm} style={{ width: '100%' }}>
+        Continue
+      </button>
 
       <p style={{ fontSize: 12, color: 'var(--label-quaternary)', textAlign: 'center', maxWidth: 260 }}>
-        Your private key never leaves your device. Keys are derived from a signature.
+        Your private key never leaves your device. Keys are derived locally.
       </p>
     </div>
   )

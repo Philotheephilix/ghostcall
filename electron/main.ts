@@ -74,11 +74,6 @@ app.whenReady().then(async () => {
     },
   })
 
-  // Forward renderer console → main process stdout so audio-path logs are visible in the terminal
-  win.webContents.on('console-message', (_e, level, message) => {
-    if (message.includes('[Audio]')) console.log('[renderer]', message)
-  })
-
   const url = process.env.NODE_ENV === 'development'
     ? 'http://localhost:3000'
     : `file://${path.join(__dirname, '../renderer/out/index.html')}`

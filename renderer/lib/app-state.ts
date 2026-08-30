@@ -10,9 +10,6 @@ export interface AppState {
 }
 
 // viewingKey is kept in memory only — never persisted to localStorage
-let _sessionViewingKey = ''
-export function getSessionViewingKey(): string { return _sessionViewingKey }
-export function setSessionViewingKey(k: string): void { _sessionViewingKey = k }
 
 const KEY = 'ghostcall:state'
 
@@ -48,6 +45,5 @@ export function saveState(patch: Partial<AppState>): AppState {
 }
 
 export function clearState(): void {
-  _sessionViewingKey = ''
   localStorage.removeItem(KEY)
 }

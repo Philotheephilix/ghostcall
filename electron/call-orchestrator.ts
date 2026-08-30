@@ -23,13 +23,12 @@ export async function goOnline(): Promise<string> {
     return currentOnionAddr!
   }
 
-  // Create ephemeral onion service
+  // Create ephemeral onion service. The inbound TCP listener is started
+  // separately by the call:go-online IPC handler via waitForInboundCall().
   const onionAddr = await torManager.addOnion(ONION_PORT)
   currentOnionAddr = onionAddr
   isOnline = true
 
-  // Start listening for the inbound connection
-  // (non-blocking — resolve returns once onion address is known)
   return onionAddr
 }
 
