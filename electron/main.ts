@@ -75,6 +75,42 @@ app.whenReady().then(async () => {
     return allowed.includes(permission)
   })
 
+  // Map file:// path-based navigation to the correct static HTML files.
+  // Next.js static export produces flat files (onboarding.html, home.html, etc.)
+  // but renderer code navigates with absolute paths (/onboarding, /home).
+  // Without this interceptor, file:///onboarding resolves to a non-existent
+  // filesystem path. We rewrite every file:// request so:
+  //   /           → renderer/out/index.html
+  //   /onboarding → renderer/out/onboarding.html  (+ query string preserved for step=)
+  //   /_next/...  → renderer/out/_next/...        (assets — pass through unchanged)
+  if (process.env.NODE_ENV !== 'development') {
+    const outDir = path.join(__dirname, '../../renderer/out')
+    session.defaultSession.protocol.interceptFileProtocol('file', (request, callback) => {
+      // Strip the file:// scheme and any query / hash to get the pathname
+      let reqPath = request.url.replace(/^file:\/\//, '').split('?')[0].split('#')[0]
+      // URL-decode (handles spaces and encoded chars)
+      try { reqPath = decodeURIComponent(reqPath) } catch { /* leave as-is */ }
+
+      // If it already points to a real file on disk (assets, _next chunks), serve it directly
+      const fs = require('fs') as typeof import('fs')
+      if (fs.existsSync(reqPath) && fs.statSync(reqPath).isFile()) {
+        callback({ path: reqPath })
+        return
+      }
+
+      // Map SPA routes → flat HTML files in out/
+      const routeName = reqPath.replace(/\/$/, '') // strip trailing slash
+        .split('/').pop() || 'index'               // last path segment
+      const candidates = [
+        path.join(outDir, routeName + '.html'),    // e.g. onboarding.html
+        path.join(outDir, routeName, 'index.html'),// e.g. onboarding/index.html
+        path.join(outDir, 'index.html'),           // fallback to SPA root
+      ]
+      const target = candidates.find(p => fs.existsSync(p)) ?? path.join(outDir, 'index.html')
+      callback({ path: target })
+    })
+  }
+
   win = new BrowserWindow({
     width: 420,
     height: 700,
