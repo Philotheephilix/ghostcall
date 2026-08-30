@@ -8,12 +8,16 @@
   "scripts": {
     "bundle:electron": "esbuild electron/main.ts --bundle --platform=node --target=node18 --outfile=dist/electron/main.js --external:electron --external:@starkware-libs/starknet-privacy-sdk --format=cjs && esbuild electron/preload.ts --bundle --platform=node --target=node18 --outfile=dist/electron/preload.js --external:electron --format=cjs && cp node_modules/opusscript/build/opusscript_native_wasm.wasm dist/electron/",
     "dev": "concurrently \"next dev renderer --port 3000\" \"wait-on http://localhost:3000 && npm run bundle:electron && cross-env NODE_ENV=development electron .\"",
-    "build": "next build renderer && npm run bundle:electron && electron-builder",
+    "build": "next build renderer --experimental-app && npm run bundle:electron && electron-builder",
+    "build:mac": "next build renderer && npm run bundle:electron && electron-builder --mac",
+    "build:mac:arm64": "next build renderer && npm run bundle:electron && electron-builder --mac --arm64",
     "test": "scarb test"
   },
   "keywords": [],
   "author": "Philotheephilix",
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",
@@ -25,6 +29,7 @@
     "electron": "^32.3.3",
     "electron-builder": "^25.1.8",
     "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.5.0",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.12",

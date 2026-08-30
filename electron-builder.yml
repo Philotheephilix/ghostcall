@@ -1,11 +1,67 @@
 appId: io.ghostcall.app
 productName: GhostCall
+copyright: "Copyright © 2024 Philotheephilix. All rights reserved."
+icon: build/icon.png
+
 files:
   - dist/**
   - renderer/out/**
+  - build/icon.icns
+  - build/icon.png
+  - "!**/__tests__/**"
+  - "!**/*.test.ts"
+  - "!**/*.test.tsx"
+  - "!**/node_modules/.cache/**"
+
 mac:
+  appId: io.ghostcall.app
   category: public.app-category.utilities
+  icon: build/icon.icns
+  minimumSystemVersion: "12.0"
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: "GhostCall needs microphone access for encrypted voice calls."
+    NSBluetoothAlwaysUsageDescription: "Not used."
+    CFBundleDisplayName: GhostCall
+    CFBundleShortVersionString: "0.1.0"
+    CFBundleURLTypes:
+      - CFBundleURLName: io.ghostcall.app
+        CFBundleURLSchemes:
+          - ghostcall
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+
+dmg:
+  title: "GhostCall ${version}"
+  icon: build/icon.icns
+  background: null
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
 linux:
+  icon: build/icon.png
   category: Utility
+  description: "Trustless, untraceable encrypted voice calls over Tor + Starknet"
+
 win:
   target: nsis
+  icon: build/icon.png
