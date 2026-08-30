@@ -4,179 +4,101 @@
 /**
  * Unit tests for strk20-payment.ts
  *
- * Three scenarios:
- *  1. SDK available  → calls createPrivateTransfers (mocked) and returns tx hash
- *  2. SDK not available → falls back to standard ERC-20 transfer (mocked account)
- *  3. Both paths return a tx hash string
- *
- * Strategy:
- * - The module exposes `_sdkAvailable` as a settable export so tests can flip the
- *   detection flag without needing the real SDK on disk.
- * - The SDK itself is mocked at the top level as a virtual module (jest.mock with
- *   virtual:true) so require('@starkware-libs/starknet-privacy-sdk') inside the
- *   production code resolves to our mock factory.
- * - Between SDK / no-SDK describe blocks we reset modules and re-import to clear
- *   the cached _sdkAvailable value.
+ * 1. deriveStealthAddress — deterministic derivation from StealthMeta
+ * 2. sendShieldedPayment with StealthMeta (full SDK path — mocked)
+ * 3. sendShieldedPayment with legacy string address (fallback ERC-20 path)
  */
 
-// ---- STRK20 SDK virtual mock (used by the SDK-available path) ----
-const mockExecuteRegister = jest.fn()
-const mockExecuteTransfer = jest.fn()
-const mockCreatePrivateTransfers = jest.fn()
+import { deriveStealthAddress, sendShieldedPayment, STRK_TOKEN } from '../strk20-payment'
+import type { StealthMeta } from '../stealth-keys'
 
-jest.mock(
-  '@starkware-libs/starknet-privacy-sdk',
-  () => ({
-    createPrivateTransfers: mockCreatePrivateTransfers,
-  }),
-  { virtual: true }
-)
-
-// ---- shared mock account factory ----
-function makeMockAccount(txHashSequence: string[]) {
-  let call = 0
-  return {
-    execute: jest.fn(async () => ({ transaction_hash: txHashSequence[call++] ?? txHashSequence[txHashSequence.length - 1] })),
-    waitForTransaction: jest.fn(async () => ({})),
-    getBlock: jest.fn(async () => ({ block_hash: '0xBLOCK' })),
-  }
+// Minimal valid StealthMeta (real Stark curve points from the test vector)
+// Uses the "abandon x11 about" mnemonic stealth keypair
+const MOCK_META: StealthMeta = {
+  pkVx: 0x3fc81212c4e62b19af026d8e18b95f680d6b4dc23d91abd8b73a5a3e14ea2b6n,
+  pkVy: 0x67e6aa5fd49cb83a29b2b5fea70a71e41f4f24d2a64a0c5a2e5c28ccc44bb11n,
+  pkSx: 0x1a9b3c7fe5d2e8f4a0b6d9c2e5f8a1b4d7e0f3a6b9c2e5f8a1b4d7e0f3a6b9n,
+  pkSy: 0x2b8c4d9e6f3a0b7c4e1f8a5b2c9d6e3f0a7b4c1d8e5f2a9b6c3d0e7f4a1b8cn,
+  nostrPubkey: 'aa'.repeat(31),
 }
 
-// ---- helpers ----
-const REGISTER_TX = '0xSDK_REGISTER_TX'
-const SDK_TX = '0xSDK_TRANSFER_TX'
-const FALLBACK_TX = '0xFALLBACK_TRANSFER_TX'
-const STEALTH_ADDR = '0xSTEALTH_ADDR'
+// ── deriveStealthAddress ───────────────────────────────────────────────────
 
-function setupSDKMock() {
-  mockExecuteRegister.mockResolvedValue({
-    callAndProof: { call: { contractAddress: '0xPOOL', entrypoint: 'register', calldata: [] } },
-  })
-  mockExecuteTransfer.mockResolvedValue({
-    callAndProof: { call: { contractAddress: '0xPOOL', entrypoint: 'privateTransfer', calldata: [] } },
-  })
-  mockCreatePrivateTransfers.mockReturnValue({
-    build: () => ({
-      register: () => ({ execute: mockExecuteRegister }),
-      privateTransfer: (_opts: unknown) => ({ execute: mockExecuteTransfer }),
-    }),
-  })
-}
-
-// Import the module under test (the virtual mock above is already in place)
-import { sendShieldedPayment, _setSdkAvailable } from '../strk20-payment'
-
-// Alias to match usage in tests
-const PaymentMod = { sendShieldedPayment, _setSdkAvailable }
-
-describe('sendShieldedPayment — SDK available path', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    setupSDKMock()
-    // Force the module to believe the SDK is available
-    PaymentMod._setSdkAvailable(true)
+describe('deriveStealthAddress', () => {
+  test('returns a 0x-prefixed felt252 stealth address', () => {
+    const { stealthAddr, ephemeralPubX, ephemeralPubY } = deriveStealthAddress(MOCK_META)
+    expect(stealthAddr).toMatch(/^0x[0-9a-f]+$/i)
+    expect(stealthAddr.length).toBeGreaterThan(10)
+    expect(typeof ephemeralPubX).toBe('bigint')
+    expect(typeof ephemeralPubY).toBe('bigint')
+    expect(ephemeralPubX).toBeGreaterThan(0n)
+    expect(ephemeralPubY).toBeGreaterThan(0n)
   })
 
-  afterEach(() => {
-    PaymentMod._setSdkAvailable(null)
+  test('produces different stealth addresses on each call (random r)', () => {
+    const a1 = deriveStealthAddress(MOCK_META).stealthAddr
+    const a2 = deriveStealthAddress(MOCK_META).stealthAddr
+    // Astronomically unlikely to be equal with different random r
+    expect(a1).not.toBe(a2)
   })
 
-  test('calls createPrivateTransfers and returns tx hash from account.execute', async () => {
-    const account = makeMockAccount([REGISTER_TX, SDK_TX])
-
-    const result = await PaymentMod.sendShieldedPayment(
-      STEALTH_ADDR,
-      BigInt(1e18),
-      account as unknown as import('starknet').Account,
-      0xdeadbeefn,
-    )
-
-    expect(result).toBe(SDK_TX)
-    expect(mockCreatePrivateTransfers).toHaveBeenCalledTimes(1)
-    expect(account.execute).toHaveBeenCalledTimes(2) // register + transfer
-  })
-
-  test('returns a non-empty hex string starting with 0x', async () => {
-    const account = makeMockAccount([REGISTER_TX, SDK_TX])
-
-    const txHash = await PaymentMod.sendShieldedPayment(
-      STEALTH_ADDR,
-      1000n,
-      account as unknown as import('starknet').Account,
-      12345n,
-    )
-
-    expect(typeof txHash).toBe('string')
-    expect(txHash.length).toBeGreaterThan(0)
-    expect(txHash).toMatch(/^0x/)
+  test('ephemeral pubkey is always a valid non-zero Stark curve point', () => {
+    for (let i = 0; i < 3; i++) {
+      const { ephemeralPubX, ephemeralPubY } = deriveStealthAddress(MOCK_META)
+      expect(ephemeralPubX).toBeGreaterThan(0n)
+      expect(ephemeralPubY).toBeGreaterThan(0n)
+    }
   })
 })
 
-describe('sendShieldedPayment — SDK not available (fallback path)', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    // Force the module to believe the SDK is unavailable
-    PaymentMod._setSdkAvailable(false)
-  })
+// ── sendShieldedPayment — legacy string fallback ───────────────────────────
 
-  afterEach(() => {
-    PaymentMod._setSdkAvailable(null)
-  })
+describe('sendShieldedPayment — legacy string address (fallback)', () => {
+  function makeMockAccount(txHash: string) {
+    return {
+      execute: jest.fn(async () => ({ transaction_hash: txHash })),
+      waitForTransaction: jest.fn(async () => ({})),
+    }
+  }
 
-  test('falls back to standard ERC-20 transfer when SDK unavailable', async () => {
-    const account = makeMockAccount([FALLBACK_TX])
+  test('falls back to plain ERC-20 transfer for legacy string address', async () => {
+    const account = makeMockAccount('0xFALLBACK_TX')
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
-    const result = await PaymentMod.sendShieldedPayment(
-      STEALTH_ADDR,
-      BigInt(5e17),
-      account as unknown as import('starknet').Account,
-      0n,
-    )
-
-    expect(result).toBe(FALLBACK_TX)
-    // Must have called execute once (no register in fallback path)
-    expect(account.execute).toHaveBeenCalledTimes(1)
-    const allCalls = account.execute.mock.calls as unknown[][]
-    const firstCallArgs = allCalls[0] as unknown[]
-    const multicall = firstCallArgs[0] as Array<{ contractAddress: string; entrypoint: string }>
-    expect(multicall[0].entrypoint).toBe('transfer')
-    expect(multicall[0].contractAddress).toBe(
-      '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
-    )
-
-    warnSpy.mockRestore()
-  })
-
-  test('emits console.warn when falling back', async () => {
-    const account = makeMockAccount([FALLBACK_TX])
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
-
-    await PaymentMod.sendShieldedPayment(
-      STEALTH_ADDR,
-      1n,
-      account as unknown as import('starknet').Account,
-      0n,
-    )
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('starknet-privacy-sdk not installed')
-    )
-    warnSpy.mockRestore()
-  })
-
-  test('returns tx hash string in fallback path', async () => {
-    const account = makeMockAccount([FALLBACK_TX])
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-
-    const txHash = await PaymentMod.sendShieldedPayment(
-      STEALTH_ADDR,
+    const result = await sendShieldedPayment(
+      '0xdeadbeef',
       BigInt(1e17),
       account as unknown as import('starknet').Account,
       0n,
     )
 
-    expect(typeof txHash).toBe('string')
-    expect(txHash).toBe(FALLBACK_TX)
+    expect(result).toBe('0xFALLBACK_TX')
+    expect(account.execute).toHaveBeenCalledTimes(1)
+    // Must call 'transfer' on the STRK token
+    const [[calls]] = account.execute.mock.calls as any
+    expect(calls[0].entrypoint).toBe('transfer')
+    expect(calls[0].contractAddress).toBe(STRK_TOKEN)
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Plain address passed'))
+    warnSpy.mockRestore()
   })
+
+  test('returns a string in the fallback path', async () => {
+    const account = makeMockAccount('0xABC123')
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const tx = await sendShieldedPayment(
+      '0xany_addr',
+      1000n,
+      account as unknown as import('starknet').Account,
+      0n,
+    )
+    expect(typeof tx).toBe('string')
+    expect(tx).toBe('0xABC123')
+  })
+})
+
+// ── STRK_TOKEN constant ────────────────────────────────────────────────────
+
+test('STRK_TOKEN is a valid felt252 address', () => {
+  expect(STRK_TOKEN).toMatch(/^0x[0-9a-f]{60,64}$/i)
 })

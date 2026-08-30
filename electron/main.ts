@@ -20,18 +20,17 @@ import { registerCallIpcHandlers } from './call-orchestrator'
 import { runIdentityStartupSequence, registerIdentityIpcHandlers, onAccountReady, handleZkeyCallback } from './identity-manager'
 import type { Account } from 'starknet'
 
-// Session state — populated during the call flow:
-//   • starknet:register / starknet:lookup set up the account
-//   • call:initiate stores the callee's stealth address
+// Session state — populated during the call flow
 interface SessionState {
   account: Account | null
-  calleeStealthAddr: string
+  // Full StealthMeta from starknet:lookup — used to derive one-time stealth address at payment time
+  calleeMeta: import('../renderer/lib/stealth-keys').StealthMeta | null
   viewingKey: bigint
 }
 
 const sessionState: SessionState = {
   account: null,
-  calleeStealthAddr: '',
+  calleeMeta: null,
   viewingKey: 0n,
 }
 
@@ -161,11 +160,11 @@ app.whenReady().then(async () => {
   // Register call IPC handlers — pass hooks to clear stale session state on each call
   registerCallIpcHandlers(win, {
     onInitiate: () => {
-      sessionState.calleeStealthAddr = ''  // clear stale address; populated by starknet:lookup for handle calls
+      sessionState.calleeMeta = null  // clear stale callee; populated by starknet:lookup for handle calls
       sessionState.viewingKey = 0n
     },
     onHangUp: () => {
-      sessionState.calleeStealthAddr = ''
+      sessionState.calleeMeta = null
     },
   })
 
@@ -227,11 +226,9 @@ ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) =
 ipcMain.handle('starknet:lookup', async (_e, { handle }: { handle: string }) => {
   const { lookupHandle } = await import('../renderer/lib/starknet-client')
   const meta = await lookupHandle(handle)
-  // TODO (mainnet): replace with proper stealth address derivation using the ERC-5564 protocol.
-  // The real stealth address requires: generate random scalar r, compute r*G + pkV (from meta.pkVx/pkVy).
-  // For now, store the nostr routing pubkey as a placeholder — payment path must be updated
-  // before mainnet deployment to use full stealth key derivation from pkV and pkS fields.
-  sessionState.calleeStealthAddr = '0x' + meta.nostrPubkey
+  // Store full StealthMeta — stealth address is derived at payment time using
+  // the ERC-5564 protocol: r·G + pkV gives the one-time recipient address
+  sessionState.calleeMeta = meta
   return meta
 })
 
@@ -271,13 +268,13 @@ ipcMain.handle('nostr:unsubscribe', async () => {
 ipcMain.handle('strk20:pay', async (_e, { amount }: { amount: string }) => {
   const { sendShieldedPayment } = await import('../renderer/lib/strk20-payment')
   if (!sessionState.account) {
-    throw new Error('Starknet account not initialised — set STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY, STARKNET_RPC_URL in .env')
+    throw new Error('Starknet account not initialised — complete onboarding first')
   }
-  if (!sessionState.calleeStealthAddr) {
-    throw new Error('No callee stealth address in session — starknet:lookup must be called before payment')
+  if (!sessionState.calleeMeta) {
+    throw new Error('No callee identity in session — starknet:lookup must be called before payment')
   }
   const txHash = await sendShieldedPayment(
-    sessionState.calleeStealthAddr,
+    sessionState.calleeMeta,
     BigInt(amount),
     sessionState.account,
     sessionState.viewingKey,
