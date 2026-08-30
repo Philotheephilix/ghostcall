@@ -65,3 +65,20 @@ test('onIdentityReady returns cleanup fn', () => {
   const cleanup = onIdentityReady(cb)
   expect(typeof cleanup).toBe('function')
 })
+
+test('identityLoad delegates to ghostcall', async () => {
+  const result = await identityLoad()
+  expect(mockIdentityLoad).toHaveBeenCalledTimes(1)
+  expect(result).toEqual({ address: '0xghi', source: 'seed' })
+})
+
+test('identityZkeyCancel delegates to ghostcall', async () => {
+  await identityZkeyCancel()
+  expect(mockIdentityZkeyCancel).toHaveBeenCalledTimes(1)
+})
+
+test('onZkeyResult returns cleanup fn', () => {
+  const cb = jest.fn()
+  const cleanup = onZkeyResult(cb)
+  expect(typeof cleanup).toBe('function')
+})
