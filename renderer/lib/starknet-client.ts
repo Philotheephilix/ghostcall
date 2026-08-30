@@ -82,7 +82,7 @@ export async function lookupHandle(handle: string): Promise<StealthMeta> {
     deployments.StealthRegistry.address,
     requireProvider()
   )
-  const result = await contract.get_stealth_meta(num.toHex(handleHash))
+  const result = await contract.call('get_stealth_meta', [num.toHex(handleHash)], { blockIdentifier: 'latest' })
   // starknet.js v7 returns a Result object with numeric string keys '0'..'4'
   const r = result as Record<string | number, bigint>
   // pk_nostr is stored as felt252; convert back to 32-byte hex pubkey string
@@ -126,7 +126,7 @@ export async function isRegistered(handle: string): Promise<boolean> {
     deployments.StealthRegistry.address,
     requireProvider()
   )
-  const result = await contract.is_registered(num.toHex(handleHash))
+  const result = await contract.call('is_registered', [num.toHex(handleHash)], { blockIdentifier: 'latest' })
   return Boolean(result)
 }
 
@@ -140,6 +140,6 @@ export async function isCommitted(commitment: bigint): Promise<boolean> {
     deployments.CallLog.address,
     requireProvider()
   )
-  const result = await contract.is_committed(num.toHex(commitment))
+  const result = await contract.call('is_committed', [num.toHex(commitment)], { blockIdentifier: 'latest' })
   return Boolean(result)
 }

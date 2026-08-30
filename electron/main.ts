@@ -1,8 +1,20 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
-// Load .env before anything else — must be first
+
+// Load .env — try the project root (dev) first, then userData (packaged installs).
+// Users can place a .env file in ~/Library/Application Support/GhostCall/ to
+// configure their own RPC URL, Nostr relay, etc. without rebuilding.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require('dotenv').config({ path: path.join(__dirname, '../../.env') })
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('dotenv').config({ path: path.join(app.getPath('userData'), '.env'), override: false })
+
+// Fallback RPC URL — public Starknet Sepolia node (no key required).
+// Override with STARKNET_RPC_URL in .env (or userData/.env) for mainnet or
+// a private Alchemy/Infura endpoint.
+if (!process.env.STARKNET_RPC_URL) {
+  process.env.STARKNET_RPC_URL = 'https://starknet-sepolia-rpc.publicnode.com'
+}
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
 import { runIdentityStartupSequence, registerIdentityIpcHandlers, onAccountReady, handleZkeyCallback } from './identity-manager'

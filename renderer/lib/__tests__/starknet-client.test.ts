@@ -60,8 +60,6 @@ jest.mock('starknet', () => {
     }),
     get_stealth_meta: jest.fn(async (...args: unknown[]) => {
       lastGetStealthMetaArgs = args
-      // Return object with numeric keys (starknet.js v7 tuple format) — 5 fields: pkVx, pkVy, pkSx, pkSy, pk_nostr
-      // routingPk is 31 bytes (62 hex chars) stored as felt252
       return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)) }
     }),
     commit_call: jest.fn(async (...args: unknown[]) => {
@@ -70,6 +68,16 @@ jest.mock('starknet', () => {
     }),
     is_committed: jest.fn(async () => BigInt(1)),
     is_registered: jest.fn(async () => false),
+    // starknet.js v7 generic call() used with blockIdentifier: 'latest'
+    call: jest.fn(async (method: string, args: unknown[]) => {
+      if (method === 'get_stealth_meta') {
+        lastGetStealthMetaArgs = args
+        return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)) }
+      }
+      if (method === 'is_registered') return false
+      if (method === 'is_committed') return BigInt(1)
+      return null
+    }),
   }
 
   const mockContract = jest.fn().mockImplementation(() => mockContractInstance)
