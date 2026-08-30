@@ -7,6 +7,7 @@ export interface AppState {
   registered: boolean
   registrationTx: string
   onboardingDone: boolean
+  identitySource: 'seed' | 'zkey' | 'env' | ''
 }
 
 // viewingKey is kept in memory only — never persisted to localStorage
@@ -20,6 +21,7 @@ const defaults: AppState = {
   registered: false,
   registrationTx: '',
   onboardingDone: false,
+  identitySource: '',
 }
 
 export function loadState(): AppState {
