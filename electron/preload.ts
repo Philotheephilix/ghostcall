@@ -57,4 +57,17 @@ contextBridge.exposeInMainWorld('ghostcall', {
 
   // Call log
   commitCall: (callId: string) => ipcRenderer.invoke('starknet:commitCall', { callId }),
+
+  // Identity
+  identityExists: () => ipcRenderer.invoke('identity:exists'),
+  identityCreate: () => ipcRenderer.invoke('identity:create'),
+  identitySave: (words: string[]) => ipcRenderer.invoke('identity:save', { words }),
+  identityImport: (words: string[]) => ipcRenderer.invoke('identity:import', { words }),
+  identityLoad: () => ipcRenderer.invoke('identity:load'),
+  identityZkeyBegin: (provider: 'google' | 'apple') => ipcRenderer.invoke('identity:zkey-begin', { provider }),
+  identityZkeyCancel: () => ipcRenderer.invoke('identity:zkey-cancel'),
+  onIdentityReady: (cb: (data: { source: string; address?: string; error?: string }) => void) =>
+    onIpc('identity:ready', cb as (...args: unknown[]) => void),
+  onZkeyResult: (cb: (data: { ok: boolean; address?: string; error?: string }) => void) =>
+    onIpc('identity:zkey-result', cb as (...args: unknown[]) => void),
 })
