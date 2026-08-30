@@ -1,4 +1,8 @@
-import { RpcProvider, Account, Contract, num } from 'starknet'
+import { RpcProvider, Account, Contract, num, ec, hash, CallData } from 'starknet'
+
+// OZ Cairo 1 (Sierra) account class hash — used for counterfactual address derivation
+// and deployAccount. Must match the hash used in identity-manager.ts.
+const OZ_ACCOUNT_CLASS_HASH = '0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f'
 import type { StealthKeypair, StealthMeta } from './stealth-keys'
 import { deriveHandleHash } from './stealth-keys'
 import { stealthToNostrKeypair } from './nostr-signal'
@@ -36,6 +40,35 @@ export function initStarknetClient(
 
 export function getAccount(): Account {
   return requireAccount()
+}
+
+/**
+ * Deploys the OZ account if it is not yet deployed on-chain.
+ * Safe to call when already deployed — skips the deploy in that case.
+ * Throws if the account has insufficient funds for deployment gas.
+ */
+export async function deployAccountIfNeeded(): Promise<void> {
+  const account = requireAccount()
+  // Check if account already deployed by trying to fetch its class hash
+  try {
+    await requireProvider().getClassHashAt(account.address)
+    return // already deployed
+  } catch {
+    // Contract not found — proceed with deploy
+  }
+  // Derive public key from the account's signer
+  const pubKey = ec.starkCurve.getStarkKey(await account.signer.getPubKey())
+  const constructorCalldata = CallData.compile({ publicKey: pubKey })
+  const receipt = await account.deployAccount({
+    classHash: OZ_ACCOUNT_CLASS_HASH,
+    constructorCalldata,
+    addressSalt: pubKey,
+  })
+  await requireProvider().waitForTransaction(receipt.transaction_hash)
+  const deployReceipt = await requireProvider().getTransactionReceipt(receipt.transaction_hash)
+  if ('execution_status' in deployReceipt && (deployReceipt as any).execution_status === 'REVERTED') {
+    throw new Error(`Account deployment reverted: ${(deployReceipt as any).revert_reason ?? 'unknown'}`)
+  }
 }
 
 /**

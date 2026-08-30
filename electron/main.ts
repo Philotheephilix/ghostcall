@@ -209,7 +209,7 @@ ipcMain.handle('tor:remove-onion', async (_e, { serviceId }: { serviceId: string
 
 // Starknet identity IPC handlers
 ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) => {
-  const { getAccount, registerHandle, isRegistered } = await import('../renderer/lib/starknet-client')
+  const { getAccount, registerHandle, isRegistered, deployAccountIfNeeded } = await import('../renderer/lib/starknet-client')
   const { deriveStealthKeypairFromPrivKey } = await import('../renderer/lib/stealth-keys')
   const { getSessionPrivKey } = await import('./identity-manager')
   getAccount() // ensure client initialised
@@ -219,6 +219,8 @@ ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) =
   if (await isRegistered(handle)) {
     return 'already-registered'
   }
+  // Deploy the account if it doesn't exist on-chain yet (counterfactual → deployed)
+  await deployAccountIfNeeded()
   return registerHandle(handle, kp)
 })
 
