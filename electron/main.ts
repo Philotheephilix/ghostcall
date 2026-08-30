@@ -75,39 +75,43 @@ app.whenReady().then(async () => {
     return allowed.includes(permission)
   })
 
-  // Map file:// path-based navigation to the correct static HTML files.
-  // Next.js static export produces flat files (onboarding.html, home.html, etc.)
-  // but renderer code navigates with absolute paths (/onboarding, /home).
-  // Without this interceptor, file:///onboarding resolves to a non-existent
-  // filesystem path. We rewrite every file:// request so:
-  //   /           → renderer/out/index.html
-  //   /onboarding → renderer/out/onboarding.html  (+ query string preserved for step=)
-  //   /_next/...  → renderer/out/_next/...        (assets — pass through unchanged)
+  // Map file:// navigation to the correct static files inside the asar.
+  // Next.js static export produces flat files (onboarding.html, home.html …)
+  // and asset chunks (renderer/out/_next/static/…). Renderer code navigates
+  // with absolute paths (/onboarding, /home) which Electron resolves as
+  // file:///onboarding — a non-existent filesystem path.
+  //
+  // Strategy: path has a file extension → asset, resolve under outDir.
+  //           path has no extension     → SPA route, map to <route>.html.
+  // asar files are virtual so fs.existsSync is not used for routing logic.
   if (process.env.NODE_ENV !== 'development') {
     const outDir = path.join(__dirname, '../../renderer/out')
     session.defaultSession.protocol.interceptFileProtocol('file', (request, callback) => {
-      // Strip the file:// scheme and any query / hash to get the pathname
-      let reqPath = request.url.replace(/^file:\/\//, '').split('?')[0].split('#')[0]
-      // URL-decode (handles spaces and encoded chars)
+      // Extract pathname (drop scheme, query, hash)
+      let reqPath = request.url
+        .replace(/^file:\/\//, '')
+        .split('?')[0]
+        .split('#')[0]
       try { reqPath = decodeURIComponent(reqPath) } catch { /* leave as-is */ }
 
-      // If it already points to a real file on disk (assets, _next chunks), serve it directly
-      const fs = require('fs') as typeof import('fs')
-      if (fs.existsSync(reqPath) && fs.statSync(reqPath).isFile()) {
+      // If the path already sits under outDir (asset already rooted correctly), serve as-is
+      if (reqPath.startsWith(outDir)) {
         callback({ path: reqPath })
         return
       }
 
-      // Map SPA routes → flat HTML files in out/
-      const routeName = reqPath.replace(/\/$/, '') // strip trailing slash
-        .split('/').pop() || 'index'               // last path segment
-      const candidates = [
-        path.join(outDir, routeName + '.html'),    // e.g. onboarding.html
-        path.join(outDir, routeName, 'index.html'),// e.g. onboarding/index.html
-        path.join(outDir, 'index.html'),           // fallback to SPA root
-      ]
-      const target = candidates.find(p => fs.existsSync(p)) ?? path.join(outDir, 'index.html')
-      callback({ path: target })
+      const hasExtension = /\.[a-zA-Z0-9]+$/.test(reqPath)
+
+      if (hasExtension) {
+        // Asset request (JS chunk, CSS, wasm, image …).
+        // reqPath is something like /_next/static/chunks/foo.js — prepend outDir.
+        callback({ path: path.join(outDir, reqPath) })
+      } else {
+        // SPA route (/onboarding, /home, /call …) → flat HTML file.
+        const segment = reqPath.replace(/\/$/, '').split('/').pop() || 'index'
+        const htmlFile = path.join(outDir, segment === 'index' ? 'index.html' : `${segment}.html`)
+        callback({ path: htmlFile })
+      }
     })
   }
 
