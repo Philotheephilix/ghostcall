@@ -6,7 +6,7 @@
   "type": "commonjs",
   "license": "Apache-2.0",
   "scripts": {
-    "bundle:electron": "esbuild electron/main.ts --bundle --platform=node --target=node18 --outfile=dist/electron/main.js --external:electron --external:@starkware-libs/starknet-privacy-sdk --format=cjs && esbuild electron/preload.ts --bundle --platform=node --target=node18 --outfile=dist/electron/preload.js --external:electron --format=cjs && cp node_modules/opusscript/build/opusscript_native_wasm.wasm dist/electron/",
+    "bundle:electron": "esbuild electron/main.ts --bundle --platform=node --target=node18 --outfile=dist/electron/main.js --external:electron --external:@starkware-libs/starknet-privacy-sdk --format=cjs && esbuild electron/preload.ts --bundle --platform=node --target=node18 --outfile=dist/electron/preload.js --external:electron --format=cjs && cp node_modules/opusscript/build/opusscript_native_nasm.js node_modules/opusscript/build/opusscript_native_wasm.js node_modules/opusscript/build/opusscript_native_wasm.wasm dist/electron/",
     "dev": "concurrently \"next dev renderer --port 3000\" \"wait-on http://localhost:3000 && npm run bundle:electron && cross-env NODE_ENV=development electron .\"",
     "build": "next build renderer --experimental-app && npm run bundle:electron && electron-builder",
     "build:mac": "next build renderer && npm run bundle:electron && electron-builder --mac",

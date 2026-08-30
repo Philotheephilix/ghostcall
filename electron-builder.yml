@@ -35,6 +35,12 @@ files:
   - "!contracts/**"
   - "!node_modules/**"
 
+# Unpack opusscript native files from asar — they sit flat in dist/electron/ alongside main.js
+asarUnpack:
+  - dist/electron/opusscript_native_nasm.js
+  - dist/electron/opusscript_native_wasm.js
+  - dist/electron/opusscript_native_wasm.wasm
+
 mac:
   appId: io.ghostcall.app
   category: public.app-category.utilities

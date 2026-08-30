@@ -4,12 +4,17 @@ import { ipcMain } from 'electron'
 
 // Opus codec in main process (Node) — avoids Chromium WASM sync-fetch restriction.
 // Uses the asm.js (nasm) build — pure JavaScript, no .wasm file needed.
-// Pre-load nasm into the require cache so opusscript never tries to load the .wasm file.
+// The nasm/wasm JS files are copied to dist/electron/ alongside main.js by bundle:electron,
+// so they're available both in dev (node_modules) and in the packaged asar.
+import path from 'path'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const nasmPath = require.resolve('opusscript/build/opusscript_native_nasm.js')
+const nasmPath = path.join(__dirname, 'opusscript_native_nasm.js')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const wasmPath = require.resolve('opusscript/build/opusscript_native_wasm.js')
-// Make the wasm require path return the nasm module instead
+const wasmPath = path.join(__dirname, 'opusscript_native_wasm.js')
+// Pre-load nasm; redirect the wasm module key to use the nasm build instead
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require(nasmPath)
+// Make the wasm require path return the nasm module
 require.cache[wasmPath] = require.cache[nasmPath]
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const OpusScript = require('opusscript') as {
