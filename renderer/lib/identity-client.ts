@@ -41,3 +41,7 @@ export function onZkeyResult(
 ): () => void {
   return gc().onZkeyResult(cb)
 }
+
+export async function identityDelete(): Promise<void> {
+  return gc().identityDelete()
+}

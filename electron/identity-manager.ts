@@ -251,8 +251,7 @@ export async function runIdentityStartupSequence(win: BrowserWindow): Promise<vo
       win.webContents.send('identity:ready', { source: 'seed', address })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      const errorType = msg.includes('STARKNET_ACCOUNT_ADDRESS') ? 'missing-env' : 'decryption-failed'
-      win.webContents.send('identity:ready', { source: '', error: errorType })
+      win.webContents.send('identity:ready', { source: '', error: 'decryption-failed' })
     }
     return
   }
@@ -325,6 +324,7 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
     const address = deriveAddress(privKeyHex)
     const rpcUrl = process.env.STARKNET_RPC_URL ?? ''
     initStarknetClient(rpcUrl, address, '0x' + privKeyHex)
+    notifyAccountReady()
     return { address, source: 'seed' }
   })
 
@@ -344,6 +344,11 @@ export function registerIdentityIpcHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('identity:zkey-cancel', () => {
     cancelZkeySession()
+  })
+
+  ipcMain.handle('identity:delete', () => {
+    const p = encPath()
+    if (fs.existsSync(p)) fs.unlinkSync(p)
   })
 
   // Replay any OAuth callback URL that arrived before zkeySession.win was set (macOS open-url race).

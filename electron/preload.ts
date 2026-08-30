@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('ghostcall', {
   identityLoad: () => ipcRenderer.invoke('identity:load'),
   identityZkeyBegin: (provider: 'google' | 'apple') => ipcRenderer.invoke('identity:zkey-begin', { provider }),
   identityZkeyCancel: () => ipcRenderer.invoke('identity:zkey-cancel'),
+  identityDelete: () => ipcRenderer.invoke('identity:delete'),
   onIdentityReady: (cb: (data: { source: string; address?: string; error?: string }) => void) =>
     onIpc('identity:ready', cb as (...args: unknown[]) => void),
   onZkeyResult: (cb: (data: { ok: boolean; address?: string; error?: string }) => void) =>

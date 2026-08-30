@@ -10,7 +10,7 @@ import SeedVerify from '../../components/SeedVerify'
 import SeedImport from '../../components/SeedImport'
 import {
   identityCreate, identitySave, identityImport, identityExists, identityLoad,
-  identityZkeyBegin, identityZkeyCancel, onZkeyResult,
+  identityZkeyBegin, identityZkeyCancel, onZkeyResult, identityDelete,
 } from '../../lib/identity-client'
 
 type Step = 'welcome' | 'identity' | 'handle' | 'fund'
@@ -159,7 +159,8 @@ function ZkeyWaitingSubFlow({
 }) {
   useEffect(() => {
     identityZkeyBegin(provider)
-  }, [])
+    return () => { identityZkeyCancel() }
+  }, [provider])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, width: '100%', maxWidth: 360 }}>
@@ -370,8 +371,9 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           </p>
         </div>
         <button className="btn-primary" onClick={() => setSub('seed-import')}>Import existing seed phrase</button>
-        <button className="btn-secondary" onClick={() => {
+        <button className="btn-secondary" onClick={async () => {
           if (confirm('This will permanently delete your saved identity. Make sure you have your seed phrase backed up.')) {
+            await identityDelete()
             clearState()
             window.location.replace('/onboarding')
           }
