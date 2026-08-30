@@ -278,3 +278,7 @@
 .hover\:bg-glass-thin:hover {
   background: var(--glass-thin) !important;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

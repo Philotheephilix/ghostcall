@@ -3,12 +3,19 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Logo from '../../components/Logo'
-import { loadState, saveState } from '../../lib/app-state'
+import { loadState, saveState, clearState } from '../../lib/app-state'
 import { useTorStatus } from '../../hooks/useTorStatus'
+import SeedGrid from '../../components/SeedGrid'
+import SeedVerify from '../../components/SeedVerify'
+import SeedImport from '../../components/SeedImport'
+import {
+  identityCreate, identitySave, identityImport, identityExists, identityLoad,
+  identityZkeyBegin, identityZkeyCancel, onZkeyResult,
+} from '../../lib/identity-client'
 
-type Step = 'welcome' | 'wallet' | 'handle' | 'fund'
+type Step = 'welcome' | 'identity' | 'handle' | 'fund'
 
-const STEPS: Step[] = ['welcome', 'wallet', 'handle', 'fund']
+const STEPS: Step[] = ['welcome', 'identity', 'handle', 'fund']
 
 function OnboardingInner() {
   const params = useSearchParams()
@@ -20,7 +27,7 @@ function OnboardingInner() {
     const s = loadState()
     if (s.onboardingDone) { window.location.replace('/home'); return }
     if (s.registered && step === 'welcome') setStep('fund')
-    else if (s.walletConnected && step === 'welcome') setStep('handle')
+    else if (s.identitySource !== '' && step === 'welcome') setStep('handle')
   }, [])
 
   function go(s: Step) {
@@ -46,8 +53,8 @@ function OnboardingInner() {
         ))}
       </div>
 
-      {step === 'welcome' && <WelcomeStep onNext={() => go('wallet')} />}
-      {step === 'wallet' && <WalletStep onNext={() => go('handle')} />}
+      {step === 'welcome' && <WelcomeStep onNext={() => go('identity')} />}
+      {step === 'identity' && <IdentityStep onNext={() => go('handle')} />}
       {step === 'handle' && <HandleStep onNext={() => go('fund')} torStatus={torStatus} />}
       {step === 'fund' && <FundStep />}
     </main>
@@ -101,52 +108,292 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   )
 }
 
-// ── Wallet ─────────────────────────────────────────────────────────────────
-// In Electron, browser wallet extensions (Argent X, Braavos) are not available.
-// Identity keys are derived from STARKNET_PRIVATE_KEY in .env — no external wallet needed.
-function WalletStep({ onNext }: { onNext: () => void }) {
-  function confirm() {
-    // Account address from .env is used by the main process; store a sentinel
-    // so later steps can distinguish "env-configured" from "dev-mode no keys"
-    const envAddr = process.env.NEXT_PUBLIC_STARKNET_ACCOUNT_ADDRESS ?? ''
-    saveState({ walletConnected: true, walletAddress: envAddr || 'dev-mode' })
-    onNext()
-  }
+// ── Identity ───────────────────────────────────────────────────────────────
 
-  const hasEnv = !!(process.env.NEXT_PUBLIC_STARKNET_ACCOUNT_ADDRESS)
+type IdentitySubFlow =
+  | 'entry'
+  | 'seed-generate' | 'seed-verify' | 'seed-done'
+  | 'seed-import' | 'seed-import-done'
+  | 'zkey-waiting' | 'zkey-done' | 'zkey-error'
+  | 'decrypt-error'
+
+// Sub-component: seed generate (extracts useEffect out of conditional)
+function SeedGenerateSubFlow({
+  words,
+  onWordsReady,
+  onVerify,
+}: {
+  words: string[]
+  onWordsReady: (w: string[]) => void
+  onVerify: () => void
+}) {
+  useEffect(() => {
+    if (words.length === 0) {
+      identityCreate().then(({ words: w }) => onWordsReady(w))
+    }
+  }, [])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32, width: '100%', maxWidth: 360 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 360 }}>
       <div style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>Identity keys</h2>
-        <p style={{ fontSize: 15, color: 'var(--label-secondary)' }}>
-          Your Starknet private key (from <code style={{ fontSize: 13 }}>.env</code>) derives your identity keypair locally. Nothing is sent on-chain yet.
+        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>Your seed phrase</h2>
+        <p style={{ fontSize: 14, color: 'var(--label-secondary)' }}>
+          Write these 12 words down in order. This is the only way to recover your wallet.
         </p>
       </div>
+      {words.length === 12 && <SeedGrid words={words} />}
+      <button className="btn-primary" disabled={words.length < 12} onClick={onVerify}>
+        I&apos;ve written these down →
+      </button>
+    </div>
+  )
+}
 
-      <div className="glass-card" style={{ width: '100%', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 22 }}>{hasEnv ? '🔑' : '⚠️'}</span>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--label-primary)', marginBottom: 2 }}>
-              {hasEnv ? 'Account configured' : 'No account configured'}
-            </p>
-            <p style={{ fontSize: 12, color: 'var(--label-tertiary)' }}>
-              {hasEnv
-                ? 'Keys loaded from .env — ready to derive identity'
-                : 'Set STARKNET_PRIVATE_KEY in .env to enable on-chain features'}
-            </p>
-          </div>
+// Sub-component: zKey waiting (extracts useEffect out of conditional)
+function ZkeyWaitingSubFlow({
+  provider,
+  onCancel,
+}: {
+  provider: 'google' | 'apple'
+  onCancel: () => void
+}) {
+  useEffect(() => {
+    identityZkeyBegin(provider)
+  }, [])
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, width: '100%', maxWidth: 360 }}>
+      <div style={{ textAlign: 'center' }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.4, marginBottom: 8 }}>
+          Sign in with {provider === 'google' ? 'Google' : 'Apple'}
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--label-secondary)' }}>
+          Complete the login in your browser, then return here.
+        </p>
+      </div>
+      <div style={{ width: 48, height: 48, border: '3px solid var(--system-blue)',
+        borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div className="glass-card-sm" style={{ width: '100%', padding: '12px 16px' }}>
+        <p style={{ fontSize: 12, color: 'var(--label-secondary)', lineHeight: 1.6 }}>
+          Your {provider === 'google' ? 'Google' : 'Apple'} account is your only recovery method.
+          You will need to re-login on each fresh install.
+        </p>
+      </div>
+      <button type="button" className="btn-text" style={{ color: 'var(--label-tertiary)', fontSize: 14 }}
+        onClick={onCancel}>
+        Cancel
+      </button>
+    </div>
+  )
+}
+
+function IdentityStep({ onNext }: { onNext: () => void }) {
+  const [sub, setSub] = useState<IdentitySubFlow>('entry')
+  const [words, setWords] = useState<string[]>([])
+  const [address, setAddress] = useState('')
+  const [zkeyProvider, setZkeyProvider] = useState<'google' | 'apple'>('google')
+  const [zkeyError, setZkeyError] = useState('')
+  const [err, setErr] = useState('')
+
+  // On mount: check if identity.enc already exists → skip to done or show decrypt-error
+  useEffect(() => {
+    identityExists().then(({ exists }) => {
+      if (exists) {
+        identityLoad().then(({ address: addr }) => {
+          setAddress(addr)
+          setSub('seed-done')
+        }).catch(() => setSub('decrypt-error'))
+      }
+    })
+  }, [])
+
+  // Listen for zKey result push event — only active when waiting
+  useEffect(() => {
+    if (sub !== 'zkey-waiting') return
+    const cleanup = onZkeyResult(({ ok, address: addr, error }) => {
+      if (ok && addr) {
+        setAddress(addr)
+        saveState({ identitySource: 'zkey', walletAddress: addr })
+        setSub('zkey-done')
+      } else {
+        setZkeyError(error ?? 'Unknown error')
+        setSub('zkey-error')
+      }
+    })
+    return cleanup
+  }, [sub])
+
+  // ── Entry screen ─────────────────────────────────────────────────────────
+  if (sub === 'entry') {
+    const options = [
+      { label: 'New wallet', sub: 'Generate a 12-word seed phrase', action: () => setSub('seed-generate') },
+      { label: 'Import wallet', sub: 'Restore from an existing seed phrase', action: () => setSub('seed-import') },
+      {
+        label: 'Sign in with Google', sub: 'Zero-knowledge login — Google is never shared with GhostCall · via zKey',
+        action: () => { setZkeyProvider('google'); setSub('zkey-waiting') },
+      },
+      {
+        label: 'Sign in with Apple', sub: 'Zero-knowledge login — Apple is never shared with GhostCall · via zKey',
+        action: () => { setZkeyProvider('apple'); setSub('zkey-waiting') },
+      },
+    ]
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32, width: '100%', maxWidth: 360 }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>Create identity</h2>
+          <p style={{ fontSize: 15, color: 'var(--label-secondary)' }}>
+            Your identity keys are generated locally and never leave your device.
+          </p>
+        </div>
+        <div className="glass-card" style={{ width: '100%', padding: 0, overflow: 'hidden' }}>
+          {options.map((o, i) => (
+            <div key={o.label}>
+              {i > 0 && <div className="divider" />}
+              <button
+                onClick={o.action}
+                style={{
+                  width: '100%', padding: '14px 20px', background: 'transparent',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  transition: 'background 120ms',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-thin)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-primary)', marginBottom: 2 }}>{o.label}</p>
+                  <p style={{ fontSize: 12, color: 'var(--label-tertiary)' }}>{o.sub}</p>
+                </div>
+                <span style={{ fontSize: 18, color: 'var(--label-quaternary)' }}>›</span>
+              </button>
+            </div>
+          ))}
         </div>
       </div>
+    )
+  }
 
-      <button className="btn-primary" onClick={confirm} style={{ width: '100%' }}>
-        Continue
-      </button>
+  // ── Seed: Generate ────────────────────────────────────────────────────────
+  if (sub === 'seed-generate') {
+    return (
+      <SeedGenerateSubFlow
+        words={words}
+        onWordsReady={setWords}
+        onVerify={() => setSub('seed-verify')}
+      />
+    )
+  }
 
-      <p style={{ fontSize: 12, color: 'var(--label-quaternary)', textAlign: 'center', maxWidth: 260 }}>
-        Your private key never leaves your device. Keys are derived locally.
-      </p>
+  // ── Seed: Verify ──────────────────────────────────────────────────────────
+  if (sub === 'seed-verify') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 360 }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.4, marginBottom: 8 }}>Verify your phrase</h2>
+          <p style={{ fontSize: 14, color: 'var(--label-secondary)' }}>
+            Confirm you saved your seed phrase correctly.
+          </p>
+        </div>
+        <SeedVerify
+          words={words}
+          onBack={() => setSub('seed-generate')}
+          onVerified={async () => {
+            setErr('')
+            try {
+              const { address: addr } = await identitySave(words)
+              setAddress(addr)
+              saveState({ identitySource: 'seed', walletAddress: addr })
+              setSub('seed-done')
+            } catch (e) { setErr((e as Error).message) }
+          }}
+        />
+        {err && <p style={{ fontSize: 12, color: 'var(--system-red)', fontFamily: 'var(--font-mono)' }}>{err}</p>}
+      </div>
+    )
+  }
+
+  // ── Seed: Import ──────────────────────────────────────────────────────────
+  if (sub === 'seed-import') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 360 }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.4, marginBottom: 8 }}>Import wallet</h2>
+          <p style={{ fontSize: 14, color: 'var(--label-secondary)' }}>
+            Enter your 12-word seed phrase. You can paste all 12 words at once.
+          </p>
+        </div>
+        <SeedImport
+          onImport={async (w) => {
+            const { address: addr } = await identityImport(w)
+            setAddress(addr)
+            saveState({ identitySource: 'seed', walletAddress: addr })
+            setSub('seed-import-done')
+          }}
+        />
+        <button type="button" className="btn-text" style={{ fontSize: 13, color: 'var(--label-tertiary)' }}
+          onClick={() => setSub('entry')}>← Back</button>
+      </div>
+    )
+  }
+
+  // ── zKey: Waiting ─────────────────────────────────────────────────────────
+  if (sub === 'zkey-waiting') {
+    return (
+      <ZkeyWaitingSubFlow
+        provider={zkeyProvider}
+        onCancel={async () => { await identityZkeyCancel(); setSub('entry') }}
+      />
+    )
+  }
+
+  // ── zKey: Error ───────────────────────────────────────────────────────────
+  if (sub === 'zkey-error') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 360 }}>
+        <p style={{ fontSize: 14, color: 'var(--system-red)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+          {zkeyError}
+        </p>
+        <button className="btn-primary" onClick={() => setSub('entry')}>Try again</button>
+      </div>
+    )
+  }
+
+  // ── Decrypt error ─────────────────────────────────────────────────────────
+  if (sub === 'decrypt-error') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 360 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Could not unlock your identity</h2>
+          <p style={{ fontSize: 14, color: 'var(--label-secondary)', lineHeight: 1.6 }}>
+            Your identity file could not be decrypted. This can happen if you migrated to a new machine or the file was corrupted.
+          </p>
+        </div>
+        <button className="btn-primary" onClick={() => setSub('seed-import')}>Import existing seed phrase</button>
+        <button className="btn-secondary" onClick={() => {
+          if (confirm('This will permanently delete your saved identity. Make sure you have your seed phrase backed up.')) {
+            clearState()
+            window.location.replace('/onboarding')
+          }
+        }}>
+          Start over
+        </button>
+      </div>
+    )
+  }
+
+  // ── Done (seed or zKey) ───────────────────────────────────────────────────
+  const truncated = address ? address.slice(0, 8) + '…' + address.slice(-6) : ''
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, width: '100%', maxWidth: 360 }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>Wallet created</h2>
+        {truncated && (
+          <p style={{ fontSize: 13, color: 'var(--label-tertiary)', fontFamily: 'var(--font-mono)' }}>{truncated}</p>
+        )}
+      </div>
+      <button className="btn-primary" onClick={onNext}>Continue →</button>
     </div>
   )
 }
@@ -178,7 +425,7 @@ function HandleStep({ onNext, torStatus }: { onNext: () => void; torStatus: Retu
       <div style={{ textAlign: 'center' }}>
         <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 8 }}>Choose a handle</h2>
         <p style={{ fontSize: 15, color: 'var(--label-secondary)' }}>
-          Your handle is how others call you. It's registered on Starknet — one transaction.
+          Your handle is how others call you. It&apos;s registered on Starknet — one transaction.
         </p>
       </div>
 
