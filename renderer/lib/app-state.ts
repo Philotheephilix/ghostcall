@@ -49,3 +49,40 @@ export function saveState(patch: Partial<AppState>): AppState {
 export function clearState(): void {
   localStorage.removeItem(KEY)
 }
+
+// ── Call log ──────────────────────────────────────────────────────────────
+
+export interface CallLogEntry {
+  id: string        // callId (random hex)
+  peer: string      // handle or onion address
+  duration: number  // seconds
+  ts: number        // unix ms
+  committed: boolean
+  txHash?: string   // STRK20 payment tx if settled
+}
+
+const CALL_LOG_KEY = 'ghostcall:callLog'
+const MAX_LOG = 20
+
+export function loadCallLog(): CallLogEntry[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(CALL_LOG_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+export function appendCallLog(entry: CallLogEntry): void {
+  const log = loadCallLog()
+  log.unshift(entry)
+  localStorage.setItem(CALL_LOG_KEY, JSON.stringify(log.slice(0, MAX_LOG)))
+}
+
+export function markCallPaid(id: string, txHash: string): void {
+  const log = loadCallLog()
+  const idx = log.findIndex(e => e.id === id)
+  if (idx >= 0) {
+    log[idx] = { ...log[idx], txHash }
+    localStorage.setItem(CALL_LOG_KEY, JSON.stringify(log))
+  }
+}

@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import Logo from '../../components/Logo'
 import DialPad from '../../components/DialPad'
+import CallHistory from '../../components/CallHistory'
+import PaymentModal from '../../components/PaymentModal'
 import { useTorStatus } from '../../hooks/useTorStatus'
-import { loadState } from '../../lib/app-state'
+import { loadState, appendCallLog, markCallPaid } from '../../lib/app-state'
 import { onIdentityReady } from '../../lib/identity-client'
 
 export default function Home() {
@@ -14,6 +16,8 @@ export default function Home() {
   const [onionAddr, setOnionAddr] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
   const [handle, setHandle] = useState('')
+  const [pendingPayment, setPendingPayment] = useState<{ callId: string; peer: string } | null>(null)
+  const [historyKey, setHistoryKey] = useState(0)
 
   useEffect(() => {
     let innerCleanup: (() => void) | null = null
@@ -23,7 +27,15 @@ export default function Home() {
       if (!gc) return
       const c1 = gc.onCallConnected?.(() => { window.location.href = '/call' })
       const c2 = gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
-      innerCleanup = () => { c1?.(); c2?.() }
+      const c3 = gc.onCallEnded?.((info: { callId: string; peer: string; duration: number }) => {
+        appendCallLog({ id: info.callId, peer: info.peer, duration: info.duration, ts: Date.now(), committed: false })
+        setHistoryKey(k => k + 1)
+        // Show payment modal only for handle-based calls (non-onion peers)
+        if (info.peer && !info.peer.includes('.onion')) {
+          setPendingPayment({ callId: info.callId, peer: info.peer })
+        }
+      })
+      innerCleanup = () => { c1?.(); c2?.(); c3?.() }
     }
 
     // If onboarding is already done, render immediately from localStorage.
@@ -140,6 +152,23 @@ export default function Home() {
         }}>
           {statusMsg}
         </p>
+      )}
+
+      {/* Call history */}
+      <CallHistory key={historyKey} />
+
+      {/* Post-call payment modal */}
+      {pendingPayment && (
+        <PaymentModal
+          peer={pendingPayment.peer}
+          callId={pendingPayment.callId}
+          onDismiss={() => setPendingPayment(null)}
+          onPaid={(txHash) => {
+            markCallPaid(pendingPayment.callId, txHash)
+            setHistoryKey(k => k + 1)
+            setPendingPayment(null)
+          }}
+        />
       )}
 
       {/* Settings link */}

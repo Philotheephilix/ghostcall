@@ -26,12 +26,19 @@ interface SessionState {
   // Full StealthMeta from starknet:lookup — used to derive one-time stealth address at payment time
   calleeMeta: import('../renderer/lib/stealth-keys').StealthMeta | null
   viewingKey: bigint
+  // Call session tracking for call:ended event
+  callStartMs: number | null
+  callPeer: string | null
+  callId: string | null
 }
 
 const sessionState: SessionState = {
   account: null,
   calleeMeta: null,
   viewingKey: 0n,
+  callStartMs: null,
+  callPeer: null,
+  callId: null,
 }
 
 let win: BrowserWindow | null = null
@@ -157,6 +164,27 @@ app.whenReady().then(async () => {
     : `file://${path.join(__dirname, '../../renderer/out/index.html')}`
   win.loadURL(url)
 
+  // Capture call start time and peer when call:connected fires
+  // call:connected carries { direction, onionAddr? } — use onionAddr for direct calls
+  win.on('ready-to-show', () => {
+    win!.webContents.on('did-finish-load', () => {
+      // Re-listen after each navigation (home → call → home)
+    })
+  })
+  // Hook into ipc-message-sync to capture outbound onionAddr from call:connected
+  const origSend = win.webContents.send.bind(win.webContents)
+  win.webContents.send = (channel: string, ...args: unknown[]) => {
+    if (channel === 'call:connected') {
+      const info = args[0] as { direction: string; onionAddr?: string } | undefined
+      sessionState.callStartMs = Date.now()
+      sessionState.callId = Math.random().toString(16).slice(2)
+      if (info?.onionAddr && !sessionState.callPeer) {
+        sessionState.callPeer = info.onionAddr
+      }
+    }
+    return origSend(channel, ...args)
+  }
+
   // Register call IPC handlers — pass hooks to clear stale session state on each call
   registerCallIpcHandlers(win, {
     onInitiate: () => {
@@ -164,7 +192,17 @@ app.whenReady().then(async () => {
       sessionState.viewingKey = 0n
     },
     onHangUp: () => {
+      // Emit call:ended before clearing state
+      if (sessionState.callStartMs !== null) {
+        const duration = Math.round((Date.now() - sessionState.callStartMs) / 1000)
+        const peer = sessionState.callPeer ?? ''
+        const callId = sessionState.callId ?? Math.random().toString(16).slice(2)
+        win?.webContents.send('call:ended', { callId, peer, duration })
+      }
       sessionState.calleeMeta = null
+      sessionState.callStartMs = null
+      sessionState.callPeer = null
+      sessionState.callId = null
     },
   })
 
@@ -229,6 +267,7 @@ ipcMain.handle('starknet:lookup', async (_e, { handle }: { handle: string }) => 
   // Store full StealthMeta — stealth address is derived at payment time using
   // the ERC-5564 protocol: r·G + pkV gives the one-time recipient address
   sessionState.calleeMeta = meta
+  sessionState.callPeer = handle  // store handle as peer for call:ended
   return meta
 })
 

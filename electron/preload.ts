@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('ghostcall', {
     onIpc('call:connected', cb as (...args: unknown[]) => void),
   onCallError: (cb: (err: { message: string }) => void) =>
     onIpc('call:error', cb as (...args: unknown[]) => void),
+  onCallEnded: (cb: (info: { callId: string; peer: string; duration: number }) => void) =>
+    onIpc('call:ended', cb as (...args: unknown[]) => void),
 
   // Audio
   sendAudioFrame: (frame: Buffer) => ipcRenderer.send('audio:outbound-frame', frame),
