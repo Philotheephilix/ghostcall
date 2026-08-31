@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { startCapture, stopCapture, setMuted, playInboundFrame } from '../lib/audio-engine'
+import Aurora from './Aurora'
 
 export default function CallScreen() {
   const [elapsed, setElapsed] = useState(0)
@@ -124,12 +125,14 @@ export default function CallScreen() {
 
   return (
     <main className="page" style={{ gap: 0 }}>
-      {/* Green ambient glow */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'radial-gradient(ellipse 80% 50% at 50% 30%, rgba(48,209,88,0.05) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
+      {/* Aurora background — green/teal hues for active call */}
+      <Aurora
+        colorStops={['#003d1a', '#30D158', '#0A2A1A']}
+        amplitude={0.8}
+        blend={0.6}
+        speed={0.5}
+        style={{ opacity: 0.4, pointerEvents: 'none' }}
+      />
 
       {/* Timer — dominant */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 64 }}>

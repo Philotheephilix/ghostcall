@@ -3,6 +3,8 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Logo from '../../components/Logo'
+import GradientWaves from '../../components/GradientWaves'
+import Carousel from '../../components/Carousel'
 import { loadState, saveState, clearState } from '../../lib/app-state'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import SeedGrid from '../../components/SeedGrid'
@@ -61,52 +63,87 @@ function OnboardingInner() {
   )
 }
 
+const FEATURE_ITEMS = [
+  {
+    id: 1,
+    title: 'Tor Onion Routing',
+    description: 'Every call travels through the Tor network. Your IP is never revealed to the other party.',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><line x1="2" y1="12" x2="22" y2="12"/>
+      </svg>
+    ),
+  },
+  {
+    id: 2,
+    title: 'Noise_XX Encryption',
+    description: 'End-to-end encrypted with the Noise protocol. No server in the call path. No key escrow.',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    ),
+  },
+  {
+    id: 3,
+    title: 'Stealth Addresses',
+    description: 'ERC-5564 stealth address derivation. Your on-chain identity never links to your real wallet.',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    ),
+  },
+  {
+    id: 4,
+    title: 'Shielded Payments',
+    description: 'Settle calls with STRK via the STRK20 privacy pool. Zero on-chain link between sender and recipient.',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+      </svg>
+    ),
+  },
+]
+
 // ── Welcome ────────────────────────────────────────────────────────────────
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, width: '100%', maxWidth: 360 }}>
-      <div style={{ position: 'relative' }}>
-        <div style={{
-          position: 'absolute', inset: -30,
-          background: 'radial-gradient(ellipse at 50% 50%, rgba(48,209,88,0.12) 0%, transparent 70%)',
-          borderRadius: '50%',
-        }} />
-        <Logo size={80} glowColor="rgba(48,209,88,0.9)" />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36, width: '100%', maxWidth: 360, position: 'relative' }}>
+      {/* GradientWaves background */}
+      <div style={{ position: 'absolute', inset: '-200px -100px', zIndex: 0, pointerEvents: 'none', opacity: 0.35 }}>
+        <GradientWaves
+          horizonColor="#000010"
+          waveColor="#001040"
+          crestColor="#0A84FF"
+          speed={0.25}
+          amplitude={1.8}
+          brightness={1.2}
+          opacity={0.9}
+          grain={false}
+          mouseInteraction={false}
+        />
       </div>
 
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: -0.8, lineHeight: 1.05, marginBottom: 12 }}>
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <Logo size={72} glowColor="rgba(10,132,255,0.9)" />
+      </div>
+
+      <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: -0.8, lineHeight: 1.05, marginBottom: 10 }}>
           GhostCall
         </h1>
-        <p style={{ fontSize: 15, color: 'var(--label-secondary)', lineHeight: 1.5, maxWidth: 280, margin: '0 auto' }}>
-          Private audio calls. No IP exposure. No trusted relay. No trace.
+        <p style={{ fontSize: 14, color: 'var(--label-secondary)', lineHeight: 1.5, maxWidth: 260, margin: '0 auto' }}>
+          Private calls. No IP. No relay. No trace.
         </p>
       </div>
 
-      {/* Feature list — typographic, no emoji boxes */}
-      <div style={{
-        width: '100%',
-        borderTop: '0.5px solid var(--glass-border-sub)',
-        borderBottom: '0.5px solid var(--glass-border-sub)',
-      }}>
-        {[
-          ['Tor onion routing', 'IP never revealed'],
-          ['Noise_XX encryption', 'End-to-end, zero intermediaries'],
-          ['Stealth addresses', 'On-chain identity, not your wallet'],
-          ['Shielded payments', 'STRK20 privacy pool'],
-        ].map(([label, sub], i, arr) => (
-          <div key={label} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-            padding: '11px 0',
-            borderTop: i > 0 ? '0.5px solid var(--glass-border-sub)' : 'none',
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--label-primary)' }}>{label}</span>
-            <span style={{ fontSize: 12, color: 'var(--label-tertiary)', textAlign: 'right', maxWidth: 160 }}>{sub}</span>
-          </div>
-        ))}
+      {/* Feature carousel */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <Carousel items={FEATURE_ITEMS} baseWidth={328} autoplay autoplayDelay={2800} loop />
       </div>
 
-      <button className="btn-primary" onClick={onNext} style={{ marginTop: 8 }}>
+      <button className="btn-primary" onClick={onNext} style={{ position: 'relative', zIndex: 1, marginTop: 4 }}>
         Get started
       </button>
     </div>
