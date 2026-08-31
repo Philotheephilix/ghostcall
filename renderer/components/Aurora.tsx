@@ -119,7 +119,8 @@ export default function Aurora({
       renderer.setSize(ctn.offsetWidth, ctn.offsetHeight)
       if (program) program.uniforms.uResolution.value = [ctn.offsetWidth, ctn.offsetHeight]
     }
-    window.addEventListener('resize', resize)
+    const ro = new ResizeObserver(resize)
+    ro.observe(ctn)
 
     const geometry = new Triangle(gl)
     if ((geometry.attributes as any).uv) delete (geometry.attributes as any).uv
@@ -156,11 +157,10 @@ export default function Aurora({
 
     return () => {
       cancelAnimationFrame(animateId)
-      window.removeEventListener('resize', resize)
+      ro.disconnect()
       if (ctn && gl.canvas.parentNode === ctn) ctn.removeChild(gl.canvas)
       gl.getExtension('WEBGL_lose_context')?.loseContext()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

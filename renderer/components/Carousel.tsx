@@ -19,13 +19,12 @@ interface CarouselItemProps {
   item: CarouselItem
   index: number
   itemWidth: number
-  round: boolean
   trackItemOffset: number
   x: ReturnType<typeof useMotionValue<number>>
   transition: object
 }
 
-function CarouselItemCard({ item, index, itemWidth, round, trackItemOffset, x, transition }: CarouselItemProps) {
+function CarouselItemCard({ item, index, itemWidth, trackItemOffset, x, transition }: CarouselItemProps) {
   const range = [-(index + 1) * trackItemOffset, -index * trackItemOffset, -(index - 1) * trackItemOffset]
   const rotateY = useTransform(x, range, [90, 0, -90], { clamp: false })
 
@@ -33,9 +32,8 @@ function CarouselItemCard({ item, index, itemWidth, round, trackItemOffset, x, t
     <motion.div
       style={{
         width: itemWidth,
-        height: round ? itemWidth : '100%',
+        height: '100%',
         rotateY,
-        ...(round ? { borderRadius: '50%' } : {}),
         position: 'relative',
         display: 'flex',
         flexShrink: 0,
@@ -198,7 +196,6 @@ export default function Carousel({
             item={item}
             index={i}
             itemWidth={itemWidth}
-            round={false}
             trackItemOffset={trackItemOffset}
             x={x}
             transition={effectiveTransition}

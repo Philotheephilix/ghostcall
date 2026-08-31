@@ -20,7 +20,6 @@ interface DockItemProps {
   baseItemSize: number
   label: string
   active?: boolean
-  isHovered?: ReturnType<typeof useMotionValue<number>>
 }
 
 function DockItem({ children, onClick, mouseX, spring, distance, magnification, baseItemSize, label, active }: DockItemProps) {
@@ -103,7 +102,7 @@ function DockLabel({ children, isHovered }: { children: ReactNode; isHovered?: R
   )
 }
 
-function DockIcon({ children, isHovered }: { children: ReactNode; isHovered?: ReturnType<typeof useMotionValue<number>> }) {
+function DockIcon({ children }: { children: ReactNode }) {
   return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{children}</div>
 }
 

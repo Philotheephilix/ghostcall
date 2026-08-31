@@ -147,7 +147,6 @@ interface GradientWavesProps {
   style?: React.CSSProperties
 }
 
-// WeakMap to store renderer context per container
 const ctxMap = new WeakMap<HTMLElement, { renderer: Renderer; program: Program; mesh: Mesh }>()
 
 export default function GradientWaves({
@@ -278,7 +277,6 @@ export default function GradientWaves({
       try { container.removeChild(canvas) } catch { /* already removed */ }
       gl.getExtension('WEBGL_lose_context')?.loseContext()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
