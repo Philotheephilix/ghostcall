@@ -56,17 +56,17 @@ function CarouselItemCard({ item, index, itemWidth, trackItemOffset, x, transiti
             width: 36, height: 36, borderRadius: '50%',
             background: 'rgba(10,132,255,0.12)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'rgba(10,132,255,0.8)',
+            color: 'var(--system-blue)',
           }}>
             {item.icon}
           </div>
         </div>
       )}
       <div style={{ padding: '16px 18px 20px' }}>
-        <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--label-primary)', marginBottom: 4 }}>
+        <p style={{ fontSize: 'var(--text-subhead, 15px)', fontWeight: 700, color: 'var(--label-primary)', marginBottom: 4 }}>
           {item.title}
         </p>
-        <p style={{ fontSize: 12, color: 'var(--label-tertiary)', lineHeight: 1.4 }}>
+        <p style={{ fontSize: 'var(--text-caption1, 12px)', color: 'var(--label-tertiary)', lineHeight: 1.4 }}>
           {item.description}
         </p>
       </div>

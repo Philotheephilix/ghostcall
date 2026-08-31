@@ -111,15 +111,15 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36, width: '100%', maxWidth: 360, position: 'relative' }}>
       {/* GradientWaves background */}
-      <div style={{ position: 'absolute', inset: '-200px -100px', zIndex: 0, pointerEvents: 'none', opacity: 0.35 }}>
+      <div style={{ position: 'absolute', inset: '-200px -100px', zIndex: 0, pointerEvents: 'none' }}>
         <GradientWaves
           horizonColor="#000010"
           waveColor="#001040"
           crestColor="#0A84FF"
           speed={0.25}
           amplitude={1.8}
-          brightness={1.2}
-          opacity={0.9}
+          brightness={1.1}
+          opacity={0.45}
           grain={false}
           mouseInteraction={false}
         />
@@ -130,7 +130,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       </div>
 
       <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: -0.8, lineHeight: 1.05, marginBottom: 10 }}>
+        <h1 style={{ fontSize: 'var(--text-large-title, 34px)', fontWeight: 700, letterSpacing: '-0.8px', lineHeight: 1.05, marginBottom: 10 }}>
           GhostCall
         </h1>
         <p style={{ fontSize: 14, color: 'var(--label-secondary)', lineHeight: 1.5, maxWidth: 260, margin: '0 auto' }}>

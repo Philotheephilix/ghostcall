@@ -131,7 +131,7 @@ export default function CallScreen() {
         amplitude={0.8}
         blend={0.6}
         speed={0.5}
-        style={{ opacity: 0.4, pointerEvents: 'none' }}
+        style={{ opacity: 0.7, pointerEvents: 'none' }}
       />
 
       {/* Timer — dominant */}
