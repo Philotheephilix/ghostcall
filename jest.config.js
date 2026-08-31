@@ -26,6 +26,10 @@ module.exports = {
     '^@noble/ciphers/chacha(\\.js)?$': '<rootDir>/node_modules/@noble/ciphers/chacha.js',
     '^@noble/hashes/sha256$': '<rootDir>/node_modules/@noble/hashes/sha2.js',
     '^@noble/hashes/sha512$': '<rootDir>/node_modules/@noble/hashes/sha2.js',
+    // @noble/hashes 2.x merged blake2s/blake2b into a single blake2.js — starknet
+    // v10 still imports the old subpaths (resolved via the package exports map,
+    // which the generic mapper below bypasses). Map them explicitly.
+    '^@noble/hashes/blake2[sb](\\.js)?$': '<rootDir>/node_modules/@noble/hashes/blake2.js',
     '^@noble/hashes/([^.]+)$': '<rootDir>/node_modules/@noble/hashes/$1.js',
     '^@noble/hashes/([^.]+)\\.js$': '<rootDir>/node_modules/@noble/hashes/$1.js',
     // nostr-tools subpath exports

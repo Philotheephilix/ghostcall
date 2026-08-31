@@ -21,6 +21,25 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
 
   const gc = () => (window as any).ghostcall
 
+  // Copy via Electron's native clipboard — navigator.clipboard is unavailable
+  // in the packaged file:// (non-secure) context. Fall back to the web API only
+  // when the bridge is absent (e.g. tests / browser dev).
+  function copyAddr(text?: string) {
+    const value = text ?? ''
+    if (!value) return
+    const bridge = gc()
+    if (bridge?.copyToClipboard) {
+      bridge.copyToClipboard(value)
+    } else {
+      navigator.clipboard?.writeText(value).catch(() => { /* ignore */ })
+    }
+  }
+
+  // Call by handle: resolve the handle to its stealth + Nostr identity on-chain,
+  // go online (opens our onion + inbound Noise responder), then publish a
+  // gift-wrapped Nostr offer carrying OUR onion. The callee receives it and dials
+  // back — so the caller waits here as the responder. We land on /call and the
+  // 'call:connected' push fires once the callee's inbound handshake completes.
   async function callByHandle() {
     const trimmedHandle = handle.trim()
     if (!trimmedHandle || isCalling) return
@@ -28,8 +47,28 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
     setStatusMsg('')
     try {
       const meta = await gc().lookupStealth(trimmedHandle)
-      const onion = (meta as any)?.onionAddr ?? (meta as any)?.onion_addr ?? trimmedHandle
-      await gc().initiateCall(onion)
+      if (!meta?.nostrPubkey) {
+        throw new Error(`Handle "${trimmedHandle}" is not registered`)
+      }
+      // Ensure we're online so the offer can advertise our onion. goOnline is
+      // idempotent (returns the existing onion if already online).
+      let myOnion = onionAddr
+      if (!myOnion) {
+        const result = await gc().goOnline()
+        myOnion = typeof result === 'string' ? result : (result as any)?.onionAddr ?? ''
+      }
+      if (!myOnion) throw new Error('Could not open an onion service — is Tor running?')
+
+      const callId = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(16).slice(2))
+      const offer = await gc().buildCallOffer(
+        { onionAddr: myOnion, callId, callerNoisePubkey: '' },
+        {
+          nostrPubkey: String(meta.nostrPubkey),
+          pkVx: String(meta.pkVx),
+          pkVy: String(meta.pkVy),
+        },
+      )
+      await gc().publishSignal(offer)
       window.location.href = '/call'
     } catch (e) {
       setIsCalling(false)
@@ -125,7 +164,7 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
               <button
                 className="btn-text"
                 style={{ fontSize: 13, justifyContent: 'flex-start', paddingLeft: 0, color: 'var(--label-secondary)' }}
-                onClick={() => navigator.clipboard?.writeText(onionAddr).catch(() => {})}
+                onClick={() => copyAddr(onionAddr)}
               >
                 Copy my address
               </button>
@@ -153,7 +192,14 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
       >
         <span>{isOnline ? 'Online' : isGoingOnline ? 'Starting…' : 'Go online'}</span>
         {isOnline
-          ? <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--system-green)', opacity: 0.7 }}>
+          ? <span
+              onClick={e => {
+                e.stopPropagation()
+                copyAddr(onionAddr)
+              }}
+              title="Click to copy"
+              style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--system-green)', opacity: 0.7, cursor: 'copy' }}
+            >
               {onionAddr?.slice(0, 12)}…
             </span>
           : <span style={{ fontSize: 19, color: 'var(--label-quaternary)' }}>›</span>

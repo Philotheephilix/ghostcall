@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, clipboard, shell } from 'electron'
 import path from 'path'
 
 // Load .env — try the project root (dev) first, then userData (packaged installs).
@@ -191,8 +191,17 @@ app.whenReady().then(async () => {
         const peer = sessionState.callPeer ?? ''
         const callId = sessionState.callId ?? Math.random().toString(16).slice(2)
         win?.webContents.send('call:ended', { callId, peer, duration })
+        // Clear calleeMeta immediately for onion-peer calls (inbound or direct-dial):
+        // home/page.tsx only shows PaymentModal when peer does NOT include '.onion',
+        // so there is no payment window to serve after these calls. For handle calls
+        // (peer = handle string, no '.onion') calleeMeta must survive until the
+        // renderer's PaymentModal dispatches strk20:pay — it is cleared at the start
+        // of the next call by onInitiate, which is the correct boundary for that path.
+        if (peer.includes('.onion')) sessionState.calleeMeta = null
+      } else {
+        // No call was tracked (e.g. hangUp before connected) — always safe to clear.
+        sessionState.calleeMeta = null
       }
-      sessionState.calleeMeta = null
       sessionState.callStartMs = null
       sessionState.callPeer = null
       sessionState.callId = null
@@ -229,6 +238,18 @@ ipcMain.handle('tor:status', async () => ({
   socksProxy: torManager.getSocksProxy(),
 }))
 
+// Native clipboard — navigator.clipboard is unavailable in the packaged
+// file:// (non-secure) context, so copy goes through Electron's clipboard.
+ipcMain.handle('clipboard:write', async (_e, { text }: { text: string }) => {
+  clipboard.writeText(String(text ?? ''))
+  return true
+})
+
+ipcMain.handle('shell:open-external', async (_e, { url }: { url: string }) => {
+  await shell.openExternal(String(url))
+  return true
+})
+
 ipcMain.handle('tor:add-onion', async (_e, { port }: { port?: number } = {}) => {
   return torManager.addOnion(port)
 })
@@ -239,15 +260,23 @@ ipcMain.handle('tor:remove-onion', async (_e, { serviceId }: { serviceId: string
 
 // Starknet identity IPC handlers
 ipcMain.handle('starknet:register', async (_e, { handle }: { handle: string }) => {
-  const { getAccount, registerHandle, isRegistered, deployAccountIfNeeded } = await import('../renderer/lib/starknet-client')
+  const { getAccount, registerHandle, isRegistered, lookupHandle, deployAccountIfNeeded } = await import('../renderer/lib/starknet-client')
   const { deriveStealthKeypairFromPrivKey } = await import('../renderer/lib/stealth-keys')
   const { getSessionPrivKey } = await import('./identity-manager')
   getAccount() // ensure client initialised
   const kp = deriveStealthKeypairFromPrivKey(getSessionPrivKey())
   sessionState.viewingKey = kp.skV
-  // If the handle is already registered, skip the tx (idempotent onboarding)
+  // A handle maps to exactly one owner. If it's already registered, it's only
+  // OK if THIS user owns it (idempotent onboarding re-run) — compare the stored
+  // viewing pubkey against ours. If it belongs to someone else, reject: the
+  // on-chain register() would revert with 'handle already taken' anyway, but we
+  // surface a clear error here instead of letting onboarding claim it falsely.
   if (await isRegistered(handle)) {
-    return 'already-registered'
+    const meta = await lookupHandle(handle)
+    if (meta.pkVx === kp.pkV.x && meta.pkVy === kp.pkV.y) {
+      return 'already-registered'
+    }
+    throw new Error('Handle already taken — choose a different one')
   }
   // Deploy the account if it doesn't exist on-chain yet (counterfactual → deployed)
   await deployAccountIfNeeded()
@@ -258,11 +287,20 @@ ipcMain.handle('starknet:lookup', async (_e, { handle }: { handle: string }) => 
   const { lookupHandle } = await import('../renderer/lib/starknet-client')
   const meta = await lookupHandle(handle)
   // Store full StealthMeta — stealth address is derived at payment time using
-  // the ERC-5564 protocol: r·G + pkV gives the one-time recipient address
+  // the ERC-5564 protocol: r·G + pkV gives the one-time recipient address.
+  // Keep the native bigint fields here; strk20-payment consumes them main-side.
   sessionState.calleeMeta = meta
   // Only store peer when no call is in progress — avoid mid-call overwrites
   if (sessionState.callStartMs === null) sessionState.callPeer = handle
-  return meta
+  // Serialize bigints to hex strings for the renderer: Electron IPC uses the
+  // structured-clone algorithm, which throws DataCloneError on native bigint.
+  return {
+    pkVx: '0x' + meta.pkVx.toString(16),
+    pkVy: '0x' + meta.pkVy.toString(16),
+    pkSx: '0x' + meta.pkSx.toString(16),
+    pkSy: '0x' + meta.pkSy.toString(16),
+    nostrPubkey: meta.nostrPubkey,
+  }
 })
 
 ipcMain.handle('starknet:commitCall', async (_e, { callId }: { callId: string }) => {
@@ -295,6 +333,63 @@ ipcMain.handle('nostr:subscribe', async (_e, { myPubHex }: { myPubHex: string })
 
 ipcMain.handle('nostr:unsubscribe', async () => {
   clearNostrSubscription()
+})
+
+// Build a NIP-59 gift-wrapped call offer addressed to the callee. Runs main-side
+// because nostr-signal.ts uses `ws`/`Buffer` (Node only). callerEphSkV is this
+// user's own viewing scalar (sessionState.viewingKey), set on account-ready and
+// during starknet:register.
+ipcMain.handle('nostr:build-offer', async (_e, { payload, callee }: {
+  payload: import('../renderer/lib/nostr-signal').CallSignalPayload
+  callee: { nostrPubkey: string; pkVx: string; pkVy: string }
+}) => {
+  const { buildCallOffer } = await import('../renderer/lib/nostr-signal')
+  if (!sessionState.viewingKey) {
+    throw new Error('Identity not ready — cannot build call offer')
+  }
+  return buildCallOffer(
+    sessionState.viewingKey,
+    { x: BigInt(callee.pkVx), y: BigInt(callee.pkVy) },
+    payload,
+    callee.nostrPubkey,
+  )
+})
+
+// Decrypt an incoming gift-wrapped offer with our own Nostr SK (derived from
+// sessionState.viewingKey). Returns the CallSignalPayload or null.
+ipcMain.handle('nostr:parse-offer', async (_e, { raw }: { raw: string }) => {
+  const { parseCallOffer } = await import('../renderer/lib/nostr-signal')
+  if (!sessionState.viewingKey) return null
+  return parseCallOffer(raw, sessionState.viewingKey)
+})
+
+// Our full 64-hex Nostr pubkey — the callee subscribes with this so the relay
+// #p filter matches the caller's outer kind-1059 tag.
+ipcMain.handle('nostr:my-pubkey', async () => {
+  const { stealthToNostrKeypair } = await import('../renderer/lib/nostr-signal')
+  if (!sessionState.viewingKey) return ''
+  return stealthToNostrKeypair(sessionState.viewingKey).pk
+})
+
+// STRK20 direct ERC-20 transfer (non-shielded) — used when sender provides a
+// raw wallet address instead of a GhostCall handle.
+ipcMain.handle('strk20:transfer', async (_e, { recipient, amount }: { recipient: string; amount: string }) => {
+  if (!sessionState.account) {
+    throw new Error('Starknet account not initialised — complete onboarding first')
+  }
+  if (!recipient || !recipient.startsWith('0x')) {
+    throw new Error('Invalid recipient address — must be a 0x-prefixed Starknet address')
+  }
+  const amountBig = BigInt(amount)
+  // Uint256 split: low 128 bits + high 128 bits
+  const amountLow = (amountBig & ((1n << 128n) - 1n)).toString()
+  const amountHigh = (amountBig >> 128n).toString()
+  const { STRK_TOKEN } = await import('../renderer/lib/strk20-payment')
+  const res = await sessionState.account.execute([
+    { contractAddress: STRK_TOKEN, entrypoint: 'transfer', calldata: [recipient, amountLow, amountHigh] },
+  ])
+  await sessionState.account.provider.waitForTransaction(res.transaction_hash)
+  return res.transaction_hash as string
 })
 
 // STRK20 payment IPC handler

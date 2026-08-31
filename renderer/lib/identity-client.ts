@@ -41,7 +41,11 @@ export function onIdentityReady(
     return () => clearTimeout(id)
   }
   return gc().onIdentityReady((data: { source: string; address?: string; error?: string }) => {
-    _cachedIdentityReady = data
+    // Only cache a resolved identity (non-empty source: env | seed | zkey). A
+    // source: '' event is the transient "no identity yet" state — caching it
+    // would make a later onIdentityReady caller (e.g. Settings) replay the empty
+    // value and wrongly redirect to onboarding even after an identity loads.
+    if (data.source) _cachedIdentityReady = data
     cb(data)
   })
 }
@@ -53,5 +57,10 @@ export function onZkeyResult(
 }
 
 export async function identityDelete(): Promise<void> {
+  // Clear the module-level cache so the next onIdentityReady call registers a
+  // live listener rather than replaying the old identity's stale cached event.
+  // Without this, re-onboarding in the same renderer session would receive the
+  // old source/address instead of the newly-created identity:ready event.
+  _cachedIdentityReady = null
   return gc().identityDelete()
 }

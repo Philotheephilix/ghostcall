@@ -14,7 +14,7 @@ async function main() {
   console.log('[test] RPC:', RPC_URL.slice(0, 50) + '...')
 
   const provider = new RpcProvider({ nodeUrl: RPC_URL, blockIdentifier: 'latest' })
-  const account = new Account(provider, ADDR, PRIV)
+  const account = new Account({ provider, address: ADDR, signer: PRIV })
 
   const kp = deriveStealthKeypairFromPrivKey(BigInt(PRIV))
   console.log('[test] Stealth keypair — pkVx:', kp.pkV.x.toString(16).slice(0, 16) + '...')

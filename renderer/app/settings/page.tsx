@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { loadState, clearState } from '../../lib/app-state'
+import { loadState, saveState, clearState } from '../../lib/app-state'
+import { identityDelete, onIdentityReady } from '../../lib/identity-client'
 import { useTorStatus } from '../../hooks/useTorStatus'
 
 // Shared balance fetcher — Uint256 aware
@@ -30,8 +31,19 @@ export default function Settings() {
 
   useEffect(() => {
     const s = loadState()
-    if (!s.onboardingDone) { window.location.replace('/onboarding'); return }
-    setState(s)
+    if (s.onboardingDone) { setState(s); return }
+    // onboardingDone can be false even with a working identity — the .env
+    // silent-path (identity:ready source 'env') lands the user on /home without
+    // ever running the onboarding UI that sets the flag, and it writes no
+    // identity.enc so identityExists() is false too. Gate on the identity:ready
+    // event instead: a non-empty source (env | seed | zkey) means an identity is
+    // live, so repair the flag and render Settings rather than bouncing to
+    // onboarding. Only redirect when there is genuinely no identity.
+    const cleanup = onIdentityReady((data) => {
+      if (data.source) { setState(saveState({ onboardingDone: true })) }
+      else { window.location.replace('/onboarding') }
+    })
+    return cleanup
   }, [])
 
   const accountAddr = (state?.walletAddress && state?.walletAddress !== 'dev-mode')
@@ -43,11 +55,15 @@ export default function Settings() {
     catch { setBalance('—') }
   }
 
-  function resetOnboarding() {
-    if (confirm('This will delete your saved identity. You will need to re-register on Starknet.')) {
-      clearState()
-      window.location.replace('/onboarding')
-    }
+  async function resetOnboarding() {
+    if (!confirm('This will delete your saved identity. You will need to re-register on Starknet.')) return
+    // Delete the encrypted identity file (identity.enc) as well as local app
+    // state — otherwise onboarding sees the old wallet via identityExists() and
+    // skips straight to "Wallet created" without creating a new one. Mirrors the
+    // decrypt-error recovery path in onboarding.
+    try { await identityDelete() } catch { /* file may already be gone */ }
+    clearState()
+    window.location.replace('/onboarding')
   }
 
   const torOk = torStatus?.running === true

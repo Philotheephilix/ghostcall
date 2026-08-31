@@ -57,7 +57,8 @@ describe('sendShieldedPayment — legacy string address (fallback)', () => {
   function makeMockAccount(txHash: string) {
     return {
       execute: jest.fn(async () => ({ transaction_hash: txHash })),
-      waitForTransaction: jest.fn(async () => ({})),
+      // starknet v10: waitForTransaction lives on account.provider, not the account
+      provider: { waitForTransaction: jest.fn(async () => ({})) },
     }
   }
 

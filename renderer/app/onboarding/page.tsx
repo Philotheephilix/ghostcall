@@ -19,6 +19,41 @@ type Step = 'welcome' | 'identity' | 'handle' | 'fund'
 
 const STEPS: Step[] = ['welcome', 'identity', 'handle', 'fund']
 
+// Copy via Electron's native clipboard — navigator.clipboard is unavailable in
+// the packaged file:// (non-secure) context. Fall back to the web API only when
+// the bridge is absent (tests / browser dev). Mirrors DialPad.copyAddr.
+function copyText(value?: string) {
+  if (!value) return
+  const bridge = (window as any).ghostcall
+  if (bridge?.copyToClipboard) {
+    bridge.copyToClipboard(value)
+  } else {
+    navigator.clipboard?.writeText(value).catch(() => { /* ignore */ })
+  }
+}
+
+// Full address with a tap-to-copy control. Shows the untruncated address (so it
+// can also be selected manually) plus a Copy button that confirms with "Copied!".
+function CopyableAddress({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false)
+  if (!address) return null
+  return (
+    <div className="glass-card" style={{ width: '100%', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <span style={{ fontSize: 12, color: 'var(--label-secondary)' }}>Your account address</span>
+      <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--label-primary)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+        {address}
+      </span>
+      <button
+        className="btn-secondary"
+        onClick={() => { copyText(address); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
+        style={{ alignSelf: 'flex-start', fontSize: 13 }}
+      >
+        {copied ? 'Copied!' : 'Copy address'}
+      </button>
+    </div>
+  )
+}
+
 function OnboardingInner() {
   const params = useSearchParams()
   const torStatus = useTorStatus()
@@ -449,6 +484,8 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           <p style={{ fontSize: 13, color: 'var(--label-tertiary)', fontFamily: 'var(--font-mono)' }}>{truncated}</p>
         )}
       </div>
+      {/* Full copyable address so the user can save/fund it before continuing */}
+      <CopyableAddress address={address} />
       <button className="btn-primary" onClick={onNext}>Continue →</button>
     </div>
   )
@@ -593,6 +630,9 @@ function FundStep() {
           Add some STRK to pay for calls.
         </p>
       </div>
+
+      {/* Full address the user must fund — copyable so they can paste into a faucet/wallet */}
+      <CopyableAddress address={accountAddr} />
 
       {/* Account info card */}
       <div className="glass-card" style={{ width: '100%', padding: 0, overflow: 'hidden' }}>

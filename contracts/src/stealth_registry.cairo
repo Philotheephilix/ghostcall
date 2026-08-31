@@ -8,10 +8,11 @@ pub trait IStealthRegistry<TState> {
         pk_s_x: felt252,
         pk_s_y: felt252,
         pk_nostr: felt252,
+        pk_nostr_hi: felt252,
     );
     fn get_stealth_meta(
         self: @TState, handle_hash: felt252,
-    ) -> (felt252, felt252, felt252, felt252, felt252);
+    ) -> (felt252, felt252, felt252, felt252, felt252, felt252);
     fn is_registered(self: @TState, handle_hash: felt252) -> bool;
 }
 
@@ -26,6 +27,10 @@ pub mod StealthRegistry {
         pk_s_x: Map<felt252, felt252>,
         pk_s_y: Map<felt252, felt252>,
         pk_nostr: Map<felt252, felt252>,
+        // High byte of the full 32-byte Nostr pubkey. pk_nostr holds the low 31
+        // bytes (fits felt252); this holds the dropped top byte so callers can
+        // reconstruct the full 64-hex key required by NIP-44 ECDH and the relay #p filter.
+        pk_nostr_hi: Map<felt252, felt252>,
         registered: Map<felt252, bool>,
     }
 
@@ -44,6 +49,7 @@ pub mod StealthRegistry {
         pub pk_s_x: felt252,
         pub pk_s_y: felt252,
         pub pk_nostr: felt252,
+        pub pk_nostr_hi: felt252,
     }
 
     #[abi(embed_v0)]
@@ -56,6 +62,7 @@ pub mod StealthRegistry {
             pk_s_x: felt252,
             pk_s_y: felt252,
             pk_nostr: felt252,
+            pk_nostr_hi: felt252,
         ) {
             assert(!self.registered.read(handle_hash), 'handle already taken');
             self.pk_v_x.write(handle_hash, pk_v_x);
@@ -63,13 +70,19 @@ pub mod StealthRegistry {
             self.pk_s_x.write(handle_hash, pk_s_x);
             self.pk_s_y.write(handle_hash, pk_s_y);
             self.pk_nostr.write(handle_hash, pk_nostr);
+            self.pk_nostr_hi.write(handle_hash, pk_nostr_hi);
             self.registered.write(handle_hash, true);
-            self.emit(Registered { handle_hash, pk_v_x, pk_v_y, pk_s_x, pk_s_y, pk_nostr });
+            self
+                .emit(
+                    Registered {
+                        handle_hash, pk_v_x, pk_v_y, pk_s_x, pk_s_y, pk_nostr, pk_nostr_hi,
+                    },
+                );
         }
 
         fn get_stealth_meta(
             self: @ContractState, handle_hash: felt252,
-        ) -> (felt252, felt252, felt252, felt252, felt252) {
+        ) -> (felt252, felt252, felt252, felt252, felt252, felt252) {
             assert(self.registered.read(handle_hash), 'handle not found');
             (
                 self.pk_v_x.read(handle_hash),
@@ -77,6 +90,7 @@ pub mod StealthRegistry {
                 self.pk_s_x.read(handle_hash),
                 self.pk_s_y.read(handle_hash),
                 self.pk_nostr.read(handle_hash),
+                self.pk_nostr_hi.read(handle_hash),
             )
         }
 

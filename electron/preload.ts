@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('ghostcall', {
   initiateCall: (onionAddr: string) =>
     ipcRenderer.invoke('call:initiate', { onionAddr }),
   hangUp: () => ipcRenderer.invoke('call:hang-up'),
+  // Pull the active-call snapshot — used on mount to recover a missed
+  // 'call:connected' push (see call-orchestrator activeCall).
+  getCallState: () => ipcRenderer.invoke('call:current-state'),
   onCallConnected: (cb: (info: { direction: string; onionAddr?: string }) => void) =>
     onIpc('call:connected', cb as (...args: unknown[]) => void),
   onCallError: (cb: (err: { message: string }) => void) =>
@@ -53,9 +56,26 @@ contextBridge.exposeInMainWorld('ghostcall', {
   unsubscribeSignals: () => ipcRenderer.invoke('nostr:unsubscribe'),
   onIncomingSignal: (cb: (data: string) => void) =>
     onIpc('nostr:incoming', cb as (...args: unknown[]) => void),
+  // Build a gift-wrapped call offer for the callee (main-side crypto over ws/Buffer).
+  buildCallOffer: (
+    payload: { onionAddr: string; callId: string; callerNoisePubkey: string },
+    callee: { nostrPubkey: string; pkVx: string; pkVy: string },
+  ) => ipcRenderer.invoke('nostr:build-offer', { payload, callee }),
+  // Decrypt an incoming offer with our own Nostr SK; resolves to the payload or null.
+  parseCallOffer: (raw: string) => ipcRenderer.invoke('nostr:parse-offer', { raw }),
+  // Our full 64-hex Nostr pubkey — used as the subscribe filter.
+  getMyNostrPubkey: () => ipcRenderer.invoke('nostr:my-pubkey'),
 
   // Payment
   settlePayment: (amount: string) => ipcRenderer.invoke('strk20:pay', { amount }),
+  transferStrk: (args: { recipient: string; amount: string }) =>
+    ipcRenderer.invoke('strk20:transfer', args),
+
+  // Clipboard (native — navigator.clipboard is blocked in the file:// context)
+  copyToClipboard: (text: string) => ipcRenderer.invoke('clipboard:write', { text }),
+
+  // Shell — open URLs in the system browser (target="_blank" stays in Electron)
+  openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', { url }),
 
   // Call log
   commitCall: (callId: string) => ipcRenderer.invoke('starknet:commitCall', { callId }),

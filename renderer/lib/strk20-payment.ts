@@ -133,77 +133,89 @@ export async function sendShieldedPayment(
   viewingKey: bigint,
 ): Promise<string> {
   if (typeof recipientMeta === 'string') {
-    console.warn('[STRK20] Plain address passed — proper stealth derivation unavailable. Using fallback transfer.')
+    console.warn('[STRK20] Plain address passed — using direct transfer.')
     return _sendFallback(recipientMeta, amountStrk, account)
   }
 
-  const { createPrivateTransfers } = await import('@starkware-libs/starknet-privacy-sdk')
-  const { RpcProvider, constants } = await import('starknet')
-
-  const rpcUrl = process.env.STARKNET_RPC_URL ?? 'https://starknet-sepolia-rpc.publicnode.com'
-  const provider = new RpcProvider({ nodeUrl: rpcUrl, blockIdentifier: 'latest' })
-
-  const chainId = await provider.getChainId()
-  const sdkChainId = chainId === constants.StarknetChainId.SN_MAIN
-    ? constants.StarknetChainId.SN_MAIN
-    : constants.StarknetChainId.SN_SEPOLIA
-
-  const transfers = createPrivateTransfers({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    account: account as any,
-    viewingKeyProvider: { getViewingKey: async () => viewingKey },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    provingProvider: { url: PROVER_URL, chainId: sdkChainId as any },
-    discoveryProvider: { url: DISCOVERY_URL },
-    poolContractAddress: POOL_ADDRESS,
-  })
-
-  // 1. Register sender in pool (idempotent)
-  await ensurePoolRegistered(transfers as any, provider, account)
-
-  // 2. Derive one-time stealth address for recipient
+  // Derive one-time stealth address locally (no external service needed).
   const { stealthAddr } = deriveStealthAddress(recipientMeta)
   console.log('[STRK20] Recipient stealth address:', stealthAddr)
 
-  // 3. Approve pool (separate tx — reentrancy guard)
-  const approveTx = await account.execute(
-    { contractAddress: STRK_TOKEN, entrypoint: 'approve', calldata: [POOL_ADDRESS, amountStrk.toString(), '0'] },
-    { tip: 0n },
-  )
-  await provider.waitForTransaction(approveTx.transaction_hash)
-  console.log('[STRK20] Approved:', approveTx.transaction_hash)
+  // Attempt full pool-based shielded transfer via the privacy SDK.
+  // Falls back to a direct stealth-address transfer when the prover/discovery
+  // service is unreachable (fetch failed, CORS, or service not deployed yet).
+  try {
+    const { createPrivateTransfers } = await import('@starkware-libs/starknet-privacy-sdk')
+    const { RpcProvider, constants } = await import('starknet')
 
-  // 4. Wait until provingBlockId is after the approval receipt
-  // (spec: all prior state must exist at the chosen proof base)
-  const approvalReceipt = await provider.getTransactionReceipt(approveTx.transaction_hash) as any
-  const approvalBlock: number = approvalReceipt.block_number ?? 0
-  let latestBlock = await provider.getBlockNumber()
-  while (latestBlock - 10 <= approvalBlock) {
-    await new Promise(r => setTimeout(r, 5000))
-    latestBlock = await provider.getBlockNumber()
-  }
-  const provingBlockId = latestBlock - 10
+    const rpcUrl = process.env.STARKNET_RPC_URL ?? 'https://starknet-sepolia-rpc.publicnode.com'
+    const provider = new RpcProvider({ nodeUrl: rpcUrl, blockIdentifier: 'latest' })
 
-  // 5. Deposit + private transfer in one atomic pool tx
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { callAndProof } = await (transfers as any)
-    .build({ autoSetup: true, autoRegister: true })
-    .surplusTo(account.address)  // any rounding surplus stays with sender
-    .with(STRK_TOKEN, (t: any) =>
-      t.deposit({ amount: amountStrk })
-       .transfer({ recipient: stealthAddr, amount: amountStrk })
+    const chainId = await provider.getChainId()
+    const sdkChainId = chainId === constants.StarknetChainId.SN_MAIN
+      ? constants.StarknetChainId.SN_MAIN
+      : constants.StarknetChainId.SN_SEPOLIA
+
+    const transfers = createPrivateTransfers({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      account: account as any,
+      viewingKeyProvider: { getViewingKey: async () => viewingKey },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      provingProvider: { url: PROVER_URL, chainId: sdkChainId as any },
+      discoveryProvider: { url: DISCOVERY_URL },
+      poolContractAddress: POOL_ADDRESS,
+    })
+
+    await ensurePoolRegistered(transfers as any, provider, account)
+
+    const approveTx = await account.execute(
+      { contractAddress: STRK_TOKEN, entrypoint: 'approve', calldata: [POOL_ADDRESS, amountStrk.toString(), '0'] },
+      { tip: 0n },
     )
-    .execute({ provingBlockId })
+    await provider.waitForTransaction(approveTx.transaction_hash)
+    console.log('[STRK20] Approved:', approveTx.transaction_hash)
 
-  const proofDetails = callAndProof.proof.proofFacts?.length
-    ? { proofFacts: callAndProof.proof.proofFacts, proof: callAndProof.proof.data }
-    : {}
+    const approvalReceipt = await provider.getTransactionReceipt(approveTx.transaction_hash) as any
+    const approvalBlock: number = approvalReceipt.block_number ?? 0
+    let latestBlock = await provider.getBlockNumber()
+    while (latestBlock - 10 <= approvalBlock) {
+      await new Promise(r => setTimeout(r, 5000))
+      latestBlock = await provider.getBlockNumber()
+    }
+    const provingBlockId = latestBlock - 10
 
-  const tx = await account.execute(callAndProof.call, { tip: 0n, ...proofDetails })
-  await provider.waitForTransaction(tx.transaction_hash)
-  console.log('[STRK20] Shielded payment:', tx.transaction_hash, '→ stealth:', stealthAddr)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { callAndProof } = await (transfers as any)
+      .build({ autoSetup: true, autoRegister: true })
+      .surplusTo(account.address)
+      .with(STRK_TOKEN, (t: any) =>
+        t.deposit({ amount: amountStrk })
+         .transfer({ recipient: stealthAddr, amount: amountStrk })
+      )
+      .execute({ provingBlockId })
 
-  return tx.transaction_hash as string
+    const proofDetails = callAndProof.proof.proofFacts?.length
+      ? { proofFacts: callAndProof.proof.proofFacts, proof: callAndProof.proof.data }
+      : {}
+
+    const tx = await account.execute(callAndProof.call, { tip: 0n, ...proofDetails })
+    await provider.waitForTransaction(tx.transaction_hash)
+    console.log('[STRK20] Shielded payment:', tx.transaction_hash, '→ stealth:', stealthAddr)
+    return tx.transaction_hash as string
+
+  } catch (e: unknown) {
+    const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
+    // Rethrow non-network errors (reverted tx, bad calldata, etc.)
+    if (!msg.includes('fetch') && !msg.includes('network') && !msg.includes('econnrefused')
+        && !msg.includes('failed to fetch') && !msg.includes('enotfound')) {
+      throw e
+    }
+    // Pool/prover unreachable — fall back to direct transfer to the derived stealth address.
+    // The recipient's real wallet is still hidden (only the ephemeral stealth address appears
+    // on-chain), but the mixer/unlinkability guarantee of the pool is absent.
+    console.warn('[STRK20] Prover/pool unreachable, falling back to direct stealth transfer:', msg)
+    return _sendFallback(stealthAddr, amountStrk, account)
+  }
 }
 
 // Fallback: plain STRK ERC-20 transfer (not shielded)
@@ -213,6 +225,7 @@ async function _sendFallback(toAddr: string, amountStrk: bigint, account: Accoun
   const res = await account.execute([
     { contractAddress: STRK_TOKEN, entrypoint: 'transfer', calldata: [toAddr, amountLow, amountHigh] },
   ])
-  await account.waitForTransaction(res.transaction_hash)
+  // v10: waitForTransaction lives on the provider, not Account
+  await account.provider.waitForTransaction(res.transaction_hash)
   return res.transaction_hash as string
 }

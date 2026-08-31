@@ -60,7 +60,7 @@ jest.mock('starknet', () => {
     }),
     get_stealth_meta: jest.fn(async (...args: unknown[]) => {
       lastGetStealthMetaArgs = args
-      return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)) }
+      return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)), 5: BigInt('0xbb') }
     }),
     commit_call: jest.fn(async (...args: unknown[]) => {
       lastCommitCallArgs = args
@@ -72,7 +72,7 @@ jest.mock('starknet', () => {
     call: jest.fn(async (method: string, args: unknown[]) => {
       if (method === 'get_stealth_meta') {
         lastGetStealthMetaArgs = args
-        return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)) }
+        return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)), 5: BigInt('0xbb') }
       }
       if (method === 'is_registered') return false
       if (method === 'is_committed') return BigInt(1)
@@ -134,13 +134,13 @@ beforeAll(() => {
 describe('registerHandle', () => {
   const sig = { r: 0xdeadbeefn, s: 0xcafebaben }
 
-  test('constructs calldata with exactly 6 felt252 args (handle_hash, pkVx, pkVy, pkSx, pkSy, pk_nostr)', async () => {
+  test('constructs calldata with exactly 7 felt252 args (handle_hash, pkVx, pkVy, pkSx, pkSy, pk_nostr, pk_nostr_hi)', async () => {
     const kp = deriveStealthKeypair(sig)
     const txHash = await registerHandle('alice', kp)
 
     expect(txHash).toBe('0xREGISTER_TX')
-    // register(handleHash, pkVx, pkVy, pkSx, pkSy, pk_nostr) = 6 args
-    expect(lastRegisterArgs).toHaveLength(6)
+    // register(handleHash, pkVx, pkVy, pkSx, pkSy, pk_nostr, pk_nostr_hi) = 7 args
+    expect(lastRegisterArgs).toHaveLength(7)
     // Each arg must be a hex felt252 string
     for (const arg of lastRegisterArgs) {
       expect(typeof arg).toBe('string')
@@ -174,15 +174,16 @@ describe('lookupHandle', () => {
     expect(lastGetStealthMetaArgs[0] as string).toMatch(/^0x[0-9a-f]+$/i)
   })
 
-  test('correctly parses (felt252 x5) return tuple including nostrPubkey', async () => {
+  test('correctly parses (felt252 x6) return tuple including full nostrPubkey', async () => {
     const meta = await lookupHandle('alice')
     expect(meta.pkVx).toBe(BigInt('0x1111'))
     expect(meta.pkVy).toBe(BigInt('0x2222'))
     expect(meta.pkSx).toBe(BigInt('0x3333'))
     expect(meta.pkSy).toBe(BigInt('0x4444'))
     expect(typeof meta.nostrPubkey).toBe('string')
-    // routingPk is 31-byte (62 hex chars), padded from felt252
-    expect(meta.nostrPubkey).toMatch(/^[0-9a-f]{62}$/)
+    // Full 32-byte pubkey (64 hex chars): pk_nostr_hi (0xbb) + pk_nostr (0xaa*31)
+    expect(meta.nostrPubkey).toMatch(/^[0-9a-f]{64}$/)
+    expect(meta.nostrPubkey).toBe('bb' + 'aa'.repeat(31))
   })
 })
 

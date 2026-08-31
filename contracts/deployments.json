@@ -1,16 +1,16 @@
 {
   "network": "SN_SEPOLIA",
-  "timestamp": "2026-08-28T00:00:00.000Z",
+  "timestamp": "2026-08-31T15:12:05.415Z",
   "StealthRegistry": {
-    "classHash": "0x3a8aab8c6509dbd65f572a33ffe4f846e58fbe9d2106fc4dd50066bd6edfceb",
-    "address": "0xcaac954e489813c8ce481f72864f16a1723471ee782fabc87431c9f8c4e8e1",
-    "declareTx": "0x26881f186029ab10396bfaaec4b0404facbc899738562dda40594abcf531f10",
-    "deployTx": "0x3f175090b930dd672a8ad1c1993b13d4718bec21ccf386406973db9bfa57237"
+    "classHash": "0x76a835d971a3a2fb5022cee3dd6a0a241c030b109213be4a66da5be71fc203e",
+    "address": "0x2da2d2c2b3621a2579bc9d0d0d458e600998966c45c87d9d74039b1120fa801",
+    "declareTx": "0x2af4300f6d00d703276158dffed898b3ce1ee55fcdeb265ba3e6c941c7ccd4b",
+    "deployTx": "0x2b91ac6dc607d55b975f9ceddf42afac35133db3a59ab9a86a170276815c6fd"
   },
   "CallLog": {
     "classHash": "0x763c7d1d672bec14ae9827ad9de14bda8b44f6ef65e20ea19a6e068d1fd143d",
-    "address": "0x2fbcdaf58ceb28e8007edd37f9d3f2e4be7ddc2d326972124a52aababc1f6ba",
-    "declareTx": "0x351a646e732d3d82e49e8ff817360fe8901b327ea9536d735ae8849300bac18",
-    "deployTx": "0x5d5e5671a906074c2fc30371606f12bdfbe0e1720ccb55320b8d890c86502cb"
+    "address": "0x1155ab697ef598a626905713a580123e720625e2de2ffb3a52cc88e4a2ab984",
+    "declareTx": "already-declared",
+    "deployTx": "0x323e9d700384417d4c94e1734d8ef248f894d54e55dc92ef2f62d98856fdcb0"
   }
 }

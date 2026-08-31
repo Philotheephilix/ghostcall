@@ -58,7 +58,7 @@ async function main() {
   const { RpcProvider, Account } = await import('starknet')
 
   const provider = new RpcProvider({ nodeUrl: rpcUrl })
-  const account = new Account(provider, accountAddress, privateKey)
+  const account = new Account({ provider, address: accountAddress, signer: privateKey })
 
   console.log('[register-strk20-pool] Account:', accountAddress)
   console.log('[register-strk20-pool] Pool:', POOL_ADDRESS)
@@ -74,7 +74,7 @@ async function main() {
   }) as { build: () => { register: () => { execute: (opts: { provingBlockId: string }) => Promise<{ callAndProof: { call: unknown } }> } } }
 
   console.log('[register-strk20-pool] Step 1: Registering with pool…')
-  const latestBlock = await account.getBlock('latest')
+  const latestBlock = await provider.getBlock('latest')
   const { callAndProof: regProof } = await transfers
     .build()
     .register()

@@ -1,4 +1,4 @@
-import { RpcProvider, Account, Contract, num, ec, hash, CallData } from 'starknet'
+import { RpcProvider, Account, Contract, num, hash, CallData } from 'starknet'
 
 // OZ Cairo 1 (Sierra) account class hash — used for counterfactual address derivation
 // and deployAccount. Must match the hash used in identity-manager.ts.
@@ -35,11 +35,24 @@ export function initStarknetClient(
 ): void {
   // blockIdentifier: 'latest' — many public nodes don't support 'pending'
   _provider = new RpcProvider({ nodeUrl: rpcUrl, blockIdentifier: 'latest' })
-  _account = new Account(_provider, accountAddress, privateKey)
+  // starknet.js v10: Account takes a single options object; `signer` accepts a
+  // raw private-key string. (v7 took positional (provider, address, privKey).)
+  _account = new Account({ provider: _provider, address: accountAddress, signer: privateKey })
 }
 
 export function getAccount(): Account {
   return requireAccount()
+}
+
+// starknet.js v10 Contract takes a single options object. All call-sites build
+// one from a Sierra ABI, a deployed address, and either the account (writes) or
+// the provider (view calls) — so centralise the construction here.
+function makeContract(
+  abi: unknown,
+  address: string,
+  providerOrAccount: Account | RpcProvider,
+): Contract {
+  return new Contract({ abi: abi as any, address, providerOrAccount })
 }
 
 /**
@@ -56,8 +69,14 @@ export async function deployAccountIfNeeded(): Promise<void> {
   } catch {
     // Contract not found — proceed with deploy
   }
-  // Derive public key from the account's signer
-  const pubKey = ec.starkCurve.getStarkKey(await account.signer.getPubKey())
+  // The account's Stark public key. signer.getPubKey() already returns the
+  // public key — do NOT pass it through ec.starkCurve.getStarkKey(), which
+  // treats its argument as a PRIVATE key and re-derives, yielding a bogus value.
+  // The address (identity-manager.deriveAddress) is computed from this exact
+  // pubkey; salt + constructor calldata must use the same value or the deployed
+  // account stores the wrong pubkey and every later tx fails __validate__ with
+  // "Account: invalid signature".
+  const pubKey = await account.signer.getPubKey()
   const constructorCalldata = CallData.compile({ publicKey: pubKey })
   const receipt = await account.deployAccount({
     classHash: OZ_ACCOUNT_CLASS_HASH,
@@ -74,8 +93,8 @@ export async function deployAccountIfNeeded(): Promise<void> {
 /**
  * Registers stealth meta-address on-chain.
  * Sends a transaction to StealthRegistry.register().
- * Includes pk_nostr = stealthToNostrKeypair(skV).pk as a felt252.
- * Returns the transaction hash.
+ * Stores the full 32-byte Nostr pubkey across two felts: pk_nostr (low 31 bytes)
+ * and pk_nostr_hi (high byte). Returns the transaction hash.
  */
 export async function registerHandle(
   handle: string,
@@ -83,22 +102,23 @@ export async function registerHandle(
 ): Promise<string> {
   const handleHash = deriveHandleHash(handle)
   const account = requireAccount()
-  const contract = new Contract(
-    stealthRegistrySierra.abi,
-    deployments.StealthRegistry.address,
-    account
-  )
-  // Derive the Nostr routing pubkey from the viewing key scalar.
-  // routingPk is 31-byte (248-bit) truncated pubkey, guaranteed to fit felt252.
-  const { routingPk } = stealthToNostrKeypair(kp.skV)
+  const contract = makeContract(stealthRegistrySierra.abi, deployments.StealthRegistry.address, account)
+  // Derive the full Nostr pubkey from the viewing key scalar. A felt252 holds
+  // only ~251 bits, so the full 256-bit pk is split: routingPk = low 31 bytes
+  // (fits felt252), and the high byte is stored separately in pk_nostr_hi so the
+  // full 64-hex key can be reconstructed on lookup (needed for NIP-44 ECDH and
+  // the relay #p filter). Both halves derive deterministically; callee agrees.
+  const { pk, routingPk } = stealthToNostrKeypair(kp.skV)
   const nostrPkFelt = BigInt('0x' + routingPk)
+  const nostrHiFelt = BigInt('0x' + pk.slice(0, pk.length - 62))
   const res = await contract.register(
     num.toHex(handleHash),
     num.toHex(kp.pkV.x),
     num.toHex(kp.pkV.y),
     num.toHex(kp.pkS.x),
     num.toHex(kp.pkS.y),
-    num.toHex(nostrPkFelt)
+    num.toHex(nostrPkFelt),
+    num.toHex(nostrHiFelt)
   )
   const receipt = await requireProvider().waitForTransaction(res.transaction_hash)
   if ('execution_status' in receipt && (receipt as any).execution_status === 'REVERTED') {
@@ -110,22 +130,19 @@ export async function registerHandle(
 /**
  * Looks up stealth meta-address for a handle.
  * Calls StealthRegistry.get_stealth_meta() (view).
- * Returns pkVx, pkVy, pkSx, pkSy, and nostrPubkey (hex string).
+ * Returns pkVx, pkVy, pkSx, pkSy, and nostrPubkey (full 64-hex string).
  */
 export async function lookupHandle(handle: string): Promise<StealthMeta> {
   const handleHash = deriveHandleHash(handle)
-  const contract = new Contract(
-    stealthRegistrySierra.abi,
-    deployments.StealthRegistry.address,
-    requireProvider()
-  )
+  const contract = makeContract(stealthRegistrySierra.abi, deployments.StealthRegistry.address, requireProvider())
   const result = await contract.call('get_stealth_meta', [num.toHex(handleHash)], { blockIdentifier: 'latest' })
-  // starknet.js v7 returns a Result object with numeric string keys '0'..'4'
+  // starknet.js v7 returns a Result object with numeric string keys '0'..'5'
   const r = result as Record<string | number, bigint>
-  // pk_nostr is stored as felt252; convert back to 32-byte hex pubkey string
-  const nostrFelt = BigInt(r[4])
-  // routingPk is stored as 31-byte (62 hex char) felt252 — match stealthToNostrKeypair().routingPk
-  const nostrPubkey = nostrFelt.toString(16).padStart(62, '0')
+  // Reconstruct the full 32-byte Nostr pubkey (64 hex) from its two felts:
+  // pk_nostr = low 31 bytes (62 hex), pk_nostr_hi = high byte (2 hex).
+  const lowHex = BigInt(r[4]).toString(16).padStart(62, '0')
+  const hiHex = BigInt(r[5]).toString(16).padStart(2, '0')
+  const nostrPubkey = hiHex + lowHex
   return {
     pkVx: BigInt(r[0]),
     pkVy: BigInt(r[1]),
@@ -142,11 +159,7 @@ export async function lookupHandle(handle: string): Promise<StealthMeta> {
  */
 export async function commitCall(callId: string | bigint): Promise<string> {
   const commitment = typeof callId === 'string' ? BigInt(callId) : callId
-  const contract = new Contract(
-    callLogSierra.abi,
-    deployments.CallLog.address,
-    requireAccount()
-  )
+  const contract = makeContract(callLogSierra.abi, deployments.CallLog.address, requireAccount())
   const res = await contract.commit_call(num.toHex(commitment))
   const receipt = await requireProvider().waitForTransaction(res.transaction_hash)
   if ('execution_status' in receipt && (receipt as any).execution_status === 'REVERTED') {
@@ -161,11 +174,7 @@ export async function commitCall(callId: string | bigint): Promise<string> {
  */
 export async function isRegistered(handle: string): Promise<boolean> {
   const handleHash = deriveHandleHash(handle)
-  const contract = new Contract(
-    stealthRegistrySierra.abi,
-    deployments.StealthRegistry.address,
-    requireProvider()
-  )
+  const contract = makeContract(stealthRegistrySierra.abi, deployments.StealthRegistry.address, requireProvider())
   const result = await contract.call('is_registered', [num.toHex(handleHash)], { blockIdentifier: 'latest' })
   return Boolean(result)
 }
@@ -175,11 +184,7 @@ export async function isRegistered(handle: string): Promise<boolean> {
  * Calls CallLog.is_committed() (view).
  */
 export async function isCommitted(commitment: bigint): Promise<boolean> {
-  const contract = new Contract(
-    callLogSierra.abi,
-    deployments.CallLog.address,
-    requireProvider()
-  )
+  const contract = makeContract(callLogSierra.abi, deployments.CallLog.address, requireProvider())
   const result = await contract.call('is_committed', [num.toHex(commitment)], { blockIdentifier: 'latest' })
   return Boolean(result)
 }

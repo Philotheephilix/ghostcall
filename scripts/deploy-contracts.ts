@@ -19,11 +19,11 @@ async function deployAccount(privateKey: string, publicKey: string, address: str
   try {
     const nonce = await provider.getNonceForAddress(address)
     console.log(`Account already deployed (nonce: ${nonce})`)
-    return new Account(provider, address, privateKey)
+    return new Account({ provider, address, signer: privateKey })
   } catch {
     // Not deployed yet — deploy it
     console.log('Deploying account...')
-    const account = new Account(provider, address, privateKey, undefined, '0x3')
+    const account = new Account({ provider, address, signer: privateKey })
     const { transaction_hash, contract_address } = await account.deployAccount({
       classHash: OZ_CLASS_HASH,
       constructorCalldata: CallData.compile({ publicKey }),
@@ -32,7 +32,7 @@ async function deployAccount(privateKey: string, publicKey: string, address: str
     console.log('Account deploy tx:', transaction_hash)
     await provider.waitForTransaction(transaction_hash)
     console.log('Account deployed at:', contract_address)
-    return new Account(provider, contract_address, privateKey, undefined, '0x3')
+    return new Account({ provider, address: contract_address, signer: privateKey })
   }
 }
 

@@ -9,7 +9,7 @@ const POOL = '0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91
 
 async function main() {
   const provider = new RpcProvider({ nodeUrl: process.env.STARKNET_RPC_URL!, blockIdentifier: 'latest' })
-  const account = new Account(provider, process.env.STARKNET_ACCOUNT_ADDRESS!, process.env.STARKNET_PRIVATE_KEY!)
+  const account = new Account({ provider, address: process.env.STARKNET_ACCOUNT_ADDRESS!, signer: process.env.STARKNET_PRIVATE_KEY! })
 
   const viewingKey = BigInt(process.env.STARKNET_PRIVATE_KEY!)
 

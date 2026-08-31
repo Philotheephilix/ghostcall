@@ -1,20 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
-import { loadState } from '../lib/app-state'
 
-// Entry point — route to correct screen based on saved state
 export default function Root() {
   useEffect(() => {
-    const state = loadState()
-    if (!state.onboardingDone) {
-      window.location.replace('/onboarding')
-    } else {
-      window.location.replace('/home')
-    }
+    window.location.replace('/home')
   }, [])
 
-  // Black screen while redirecting
   return (
     <div style={{
       minHeight: '100vh', background: '#000',
