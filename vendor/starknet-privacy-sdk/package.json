@@ -1,7 +1,7 @@
 {
   "name": "@starkware-libs/starknet-privacy-sdk",
   "version": "0.14.3-rc.5",
-  "description": "TypeScript SDK for private transfers on Starknet — deposit, transfer, withdraw, and discover notes via a fluent builder API",
+  "description": "TypeScript SDK for private transfers on Starknet \u2014 deposit, transfer, withdraw, and discover notes via a fluent builder API",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/starkware-libs/starknet-privacy.git",
@@ -13,23 +13,28 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
     },
     "./testing": {
       "import": "./dist/testing/index.js",
-      "types": "./dist/testing/index.d.ts"
+      "types": "./dist/testing/index.d.ts",
+      "require": "./dist/testing/index.js"
     },
     "./browser": {
       "import": "./dist/browser/starknet-sdk.js",
-      "default": "./dist/browser/starknet-sdk.min.js"
+      "default": "./dist/browser/starknet-sdk.min.js",
+      "require": "./dist/browser/starknet-sdk.js"
     },
     "./browser/testing": {
       "import": "./dist/browser/starknet-sdk-testing.js",
-      "default": "./dist/browser/starknet-sdk-testing.min.js"
+      "default": "./dist/browser/starknet-sdk-testing.min.js",
+      "require": "./dist/browser/starknet-sdk-testing.js"
     },
     "./abi": {
       "import": "./dist/internal/abi.js",
-      "types": "./dist/internal/abi.d.ts"
+      "types": "./dist/internal/abi.d.ts",
+      "require": "./dist/internal/abi.js"
     }
   },
   "publishConfig": {
