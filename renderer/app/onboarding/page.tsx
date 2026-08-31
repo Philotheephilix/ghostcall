@@ -83,20 +83,25 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         </p>
       </div>
 
-      {/* Feature pills */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+      {/* Feature list — typographic, no emoji boxes */}
+      <div style={{
+        width: '100%',
+        borderTop: '0.5px solid var(--glass-border-sub)',
+        borderBottom: '0.5px solid var(--glass-border-sub)',
+      }}>
         {[
-          { icon: '🧅', label: 'Tor onion routing', sub: 'Your IP is never revealed' },
-          { icon: '🔐', label: 'Noise_XX encryption', sub: 'End-to-end, no server in path' },
-          { icon: '👻', label: 'Stealth addresses', sub: 'Identity on Starknet, not your wallet' },
-          { icon: '🪙', label: 'Shielded payments', sub: 'STRK20 privacy pool post-call' },
-        ].map(f => (
-          <div key={f.label} className="glass-card-sm" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <span style={{ fontSize: 22, lineHeight: 1 }}>{f.icon}</span>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--label-primary)', marginBottom: 2 }}>{f.label}</p>
-              <p style={{ fontSize: 12, color: 'var(--label-tertiary)' }}>{f.sub}</p>
-            </div>
+          ['Tor onion routing', 'IP never revealed'],
+          ['Noise_XX encryption', 'End-to-end, zero intermediaries'],
+          ['Stealth addresses', 'On-chain identity, not your wallet'],
+          ['Shielded payments', 'STRK20 privacy pool'],
+        ].map(([label, sub], i, arr) => (
+          <div key={label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+            padding: '11px 0',
+            borderTop: i > 0 ? '0.5px solid var(--glass-border-sub)' : 'none',
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--label-primary)' }}>{label}</span>
+            <span style={{ fontSize: 12, color: 'var(--label-tertiary)', textAlign: 'right', maxWidth: 160 }}>{sub}</span>
           </div>
         ))}
       </div>

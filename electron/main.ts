@@ -182,7 +182,7 @@ app.whenReady().then(async () => {
   registerCallIpcHandlers(win, {
     onInitiate: () => {
       sessionState.calleeMeta = null  // clear stale callee; populated by starknet:lookup for handle calls
-      sessionState.viewingKey = 0n
+      // viewingKey belongs to the sender's identity, not the call session — do not reset here
     },
     onHangUp: () => {
       // Emit call:ended before clearing state
@@ -260,7 +260,8 @@ ipcMain.handle('starknet:lookup', async (_e, { handle }: { handle: string }) => 
   // Store full StealthMeta — stealth address is derived at payment time using
   // the ERC-5564 protocol: r·G + pkV gives the one-time recipient address
   sessionState.calleeMeta = meta
-  sessionState.callPeer = handle  // store handle as peer for call:ended
+  // Only store peer when no call is in progress — avoid mid-call overwrites
+  if (sessionState.callStartMs === null) sessionState.callPeer = handle
   return meta
 })
 

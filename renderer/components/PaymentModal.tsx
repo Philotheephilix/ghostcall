@@ -18,10 +18,12 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
 
   async function pay() {
     const gc = (window as any).ghostcall
-    const amountWei = BigInt(Math.round(parseFloat(amount) * 1e18)).toString()
     setStatus('pending')
     setErrMsg('')
     try {
+      const parsed = parseFloat(amount)
+      if (!isFinite(parsed) || parsed <= 0) throw new Error('Invalid amount')
+      const amountWei = BigInt(Math.round(parsed * 1e18)).toString()
       const hash = await gc?.settlePayment?.(amountWei)
       setTxHash(hash ?? '')
       setStatus('success')
@@ -42,9 +44,9 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
     }}>
       <div style={{
         width: '100%',
-        background: 'var(--bg-elevated, #1c1c1e)',
+        background: 'var(--system-gray-4)',
         border: '0.5px solid var(--glass-border-sub)',
-        borderRadius: '20px 20px 0 0',
+        borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0',
         padding: '28px 24px 40px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -69,8 +71,17 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
 
         {status === 'success' ? (
           <div style={{ textAlign: 'center', padding: '12px 0' }}>
-            <p style={{ fontSize: 28, marginBottom: 8 }}>✓</p>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'rgba(48,209,88,0.9)', marginBottom: 6 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'rgba(48,209,88,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 12px',
+            }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--system-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3,9 7,13 15,5" />
+              </svg>
+            </div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--system-green)', marginBottom: 6 }}>
               Payment sent anonymously
             </p>
             <p style={{
@@ -84,8 +95,8 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
               onClick={onDismiss}
               style={{
                 marginTop: 20, width: '100%', padding: '13px 0',
-                background: 'var(--glass)', border: '0.5px solid var(--glass-border-sub)',
-                borderRadius: 13, color: 'var(--label-secondary)', fontSize: 15, cursor: 'pointer',
+                background: 'var(--glass-thin)', border: '0.5px solid var(--glass-border-sub)',
+                borderRadius: 'var(--radius-md)', color: 'var(--label-secondary)', fontSize: 15, cursor: 'pointer',
               }}
             >
               Done
@@ -96,7 +107,7 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
             <div style={{
               background: 'var(--glass-thin)',
               border: '0.5px solid var(--glass-border-sub)',
-              borderRadius: 13, padding: '12px 16px',
+              borderRadius: 'var(--radius-md)', padding: '12px 16px',
               display: 'flex', alignItems: 'center', gap: 10,
               marginBottom: 12,
             }}>
@@ -130,7 +141,7 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
                 style={{
                   flex: 1, padding: '13px 0',
                   background: 'var(--glass-thin)', border: '0.5px solid var(--glass-border-sub)',
-                  borderRadius: 13, color: 'var(--label-secondary)', fontSize: 15, cursor: 'pointer',
+                  borderRadius: 'var(--radius-md)', color: 'var(--label-secondary)', fontSize: 15, cursor: 'pointer',
                 }}
               >
                 Skip
@@ -141,20 +152,17 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
                 style={{
                   flex: 2, padding: '13px 0',
                   background: status === 'pending' ? 'rgba(10,132,255,0.3)' : 'rgba(10,132,255,0.85)',
-                  border: 'none', borderRadius: 13,
+                  border: 'none', borderRadius: 'var(--radius-md)',
                   color: '#fff', fontSize: 15, fontWeight: 600,
                   cursor: status === 'pending' ? 'default' : 'pointer',
                 }}
               >
-                {status === 'pending' ? 'Sending…' : '🔒 Pay anonymously'}
+                {status === 'pending' ? 'Sending…' : 'Pay anonymously'}
               </button>
             </div>
 
-            <p style={{
-              fontSize: 10, color: 'var(--label-tertiary)',
-              textAlign: 'center', marginTop: 10,
-            }}>
-              Routed through STRK20 privacy pool · stealth address
+            <p style={{ fontSize: 10, color: 'var(--label-quaternary)', textAlign: 'center', marginTop: 10 }}>
+              STRK20 privacy pool · stealth address
             </p>
           </>
         )}

@@ -10,8 +10,7 @@ function relativeTime(ts: number): string {
   if (m < 60) return `${m}m ago`
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  return `${d}d ago`
+  return `${Math.floor(h / 24)}d ago`
 }
 
 function formatDuration(s: number): string {
@@ -27,27 +26,31 @@ function shortPeer(peer: string): string {
   return '@' + peer
 }
 
+function PhoneIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 2h3l1.5 3.5-1.75 1.05A9.5 9.5 0 0 0 8.45 9.25L9.5 7.5 13 9v3a1 1 0 0 1-1.09 1A10 10 0 0 1 1 3 1 1 0 0 1 2 2z"/>
+    </svg>
+  )
+}
+
 export default function CallHistory() {
   const entries: CallLogEntry[] = loadCallLog()
-
   if (entries.length === 0) return null
 
   return (
-    <div style={{
-      width: '100%', maxWidth: 360,
-      marginTop: 20,
-    }}>
+    <div style={{ width: '100%', maxWidth: 360, marginTop: 'var(--space-5)' }}>
       <p style={{
         fontSize: 11, fontWeight: 600, letterSpacing: 0.8,
         color: 'var(--label-tertiary)', textTransform: 'uppercase',
-        marginBottom: 8, paddingLeft: 4,
+        marginBottom: 'var(--space-2)', paddingLeft: 4,
       }}>
         Recent calls
       </p>
       <div style={{
         background: 'var(--glass-thin)',
         border: '0.5px solid var(--glass-border-sub)',
-        borderRadius: 14,
+        borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
       }}>
         {entries.map((e, i) => (
@@ -59,11 +62,11 @@ export default function CallHistory() {
           }}>
             <div style={{
               width: 32, height: 32, borderRadius: '50%',
-              background: 'var(--glass)',
+              background: 'var(--glass-regular)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, flexShrink: 0,
+              color: 'var(--label-tertiary)', flexShrink: 0,
             }}>
-              📞
+              <PhoneIcon />
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -81,9 +84,9 @@ export default function CallHistory() {
 
             {e.txHash && (
               <div style={{
-                fontSize: 10, padding: '2px 7px', borderRadius: 20,
+                fontSize: 10, padding: '2px 7px', borderRadius: 'var(--radius-full)',
                 background: 'rgba(48,209,88,0.12)',
-                color: 'rgba(48,209,88,0.9)',
+                color: 'var(--system-green)',
                 fontWeight: 600, flexShrink: 0,
               }}>
                 Paid

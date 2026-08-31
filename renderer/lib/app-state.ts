@@ -82,7 +82,7 @@ export function markCallPaid(id: string, txHash: string): void {
   const log = loadCallLog()
   const idx = log.findIndex(e => e.id === id)
   if (idx >= 0) {
-    log[idx] = { ...log[idx], txHash }
+    log[idx] = { ...log[idx], txHash, committed: true }
     localStorage.setItem(CALL_LOG_KEY, JSON.stringify(log))
   }
 }
