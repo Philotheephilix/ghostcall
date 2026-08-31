@@ -161,7 +161,6 @@ export default function Home() {
       {pendingPayment && (
         <PaymentModal
           peer={pendingPayment.peer}
-          callId={pendingPayment.callId}
           onDismiss={() => setPendingPayment(null)}
           onPaid={(txHash) => {
             markCallPaid(pendingPayment.callId, txHash)

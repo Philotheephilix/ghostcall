@@ -4,12 +4,11 @@ import { useState } from 'react'
 
 interface Props {
   peer: string
-  callId: string
   onDismiss: () => void
   onPaid: (txHash: string) => void
 }
 
-export default function PaymentModal({ peer, callId, onDismiss, onPaid }: Props) {
+export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
   const [amount, setAmount] = useState('0.1')
   const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle')
   const [txHash, setTxHash] = useState('')
@@ -48,7 +47,6 @@ export default function PaymentModal({ peer, callId, onDismiss, onPaid }: Props)
         borderRadius: '20px 20px 0 0',
         padding: '28px 24px 40px',
       }}>
-        {/* Handle */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
             <p style={{ fontSize: 11, color: 'var(--label-tertiary)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>
@@ -95,7 +93,6 @@ export default function PaymentModal({ peer, callId, onDismiss, onPaid }: Props)
           </div>
         ) : (
           <>
-            {/* Amount input */}
             <div style={{
               background: 'var(--glass-thin)',
               border: '0.5px solid var(--glass-border-sub)',

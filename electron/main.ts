@@ -164,14 +164,7 @@ app.whenReady().then(async () => {
     : `file://${path.join(__dirname, '../../renderer/out/index.html')}`
   win.loadURL(url)
 
-  // Capture call start time and peer when call:connected fires
-  // call:connected carries { direction, onionAddr? } — use onionAddr for direct calls
-  win.on('ready-to-show', () => {
-    win!.webContents.on('did-finish-load', () => {
-      // Re-listen after each navigation (home → call → home)
-    })
-  })
-  // Hook into ipc-message-sync to capture outbound onionAddr from call:connected
+  // Hook into webContents.send to capture call:connected and emit call:ended with timing
   const origSend = win.webContents.send.bind(win.webContents)
   win.webContents.send = (channel: string, ...args: unknown[]) => {
     if (channel === 'call:connected') {

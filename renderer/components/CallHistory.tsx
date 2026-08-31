@@ -57,7 +57,6 @@ export default function CallHistory() {
             borderTop: i > 0 ? '0.5px solid var(--glass-border-sub)' : 'none',
             gap: 10,
           }}>
-            {/* Icon */}
             <div style={{
               width: 32, height: 32, borderRadius: '50%',
               background: 'var(--glass)',
@@ -67,7 +66,6 @@ export default function CallHistory() {
               📞
             </div>
 
-            {/* Details */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{
                 fontSize: 13, fontWeight: 500,
@@ -81,7 +79,6 @@ export default function CallHistory() {
               </p>
             </div>
 
-            {/* Payment badge */}
             {e.txHash && (
               <div style={{
                 fontSize: 10, padding: '2px 7px', borderRadius: 20,
