@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Logo from '../../components/Logo'
 import GradientWaves from '../../components/GradientWaves'
 import Carousel from '../../components/Carousel'
-import Iridescence from '../../components/Iridescence'
+import LineWaves from '../../components/LineWaves'
 import { loadState, saveState, clearState } from '../../lib/app-state'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import SeedGrid from '../../components/SeedGrid'
@@ -151,11 +151,18 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         position: 'absolute', inset: '-60px -80px', zIndex: 0,
         pointerEvents: 'none', opacity: 0.45,
       }}>
-        <Iridescence
-          color={[0.773, 0.945, 0.208]}
-          speed={0.5}
-          amplitude={0.06}
-          mouseReact={false}
+        <LineWaves
+          color1="#C6F135"
+          color2="#a8d420"
+          color3="#e8ff60"
+          speed={0.3}
+          brightness={0.35}
+          warpIntensity={1.0}
+          innerLineCount={30}
+          outerLineCount={34}
+          rotation={-40}
+          colorCycleSpeed={0.5}
+          enableMouseInteraction={false}
         />
       </div>
 

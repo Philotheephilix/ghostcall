@@ -7,7 +7,7 @@ import CallHistory from '../../components/CallHistory'
 import PaymentModal from '../../components/PaymentModal'
 import PaymentsPage from '../../components/PaymentsPage'
 import Dock from '../../components/Dock'
-import Iridescence from '../../components/Iridescence'
+import LineWaves from '../../components/LineWaves'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import { appendCallLog, markCallPaid, loadState } from '../../lib/app-state'
 
@@ -98,11 +98,18 @@ export default function Home() {
         opacity: torOk ? 0.55 : 0.22,
         transition: 'opacity 1.4s ease',
       }}>
-        <Iridescence
-          color={torOk ? [0.773, 0.945, 0.208] : [0.3, 0.32, 0.28]}
-          speed={0.6}
-          amplitude={0.08}
-          mouseReact={false}
+        <LineWaves
+          color1={torOk ? '#C6F135' : '#2a2d28'}
+          color2={torOk ? '#a8d420' : '#1e2018'}
+          color3={torOk ? '#e8ff60' : '#333530'}
+          speed={0.25}
+          brightness={torOk ? 0.28 : 0.12}
+          warpIntensity={0.8}
+          innerLineCount={28}
+          outerLineCount={32}
+          rotation={-35}
+          colorCycleSpeed={0.4}
+          enableMouseInteraction={false}
         />
       </div>
 
