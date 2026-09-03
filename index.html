@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GhostCall — Private Voice, by Design</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:        #0a0a0a;
+    --paper:      #f5f4f0;
+    --paper-warm: #ede9e1;
+    --accent:     #c8ff00;
+    --accent2:    #ff3c00;
+    --mid:        #6b6b6b;
+    --border:     rgba(10,10,10,0.1);
+    --f-serif:    'Playfair Display', 'Georgia', serif;
+    --f-sans:     'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --ease:       cubic-bezier(0.16,1,0.3,1);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* ── Custom cursor ─────────────────────────────────── */
+  #cur {
+    position: fixed;
+    top: 0; left: 0;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--ink);
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%,-50%);
+    transition:
+      width .28s var(--ease),
+      height .28s var(--ease),
+      background .2s ease;
+    mix-blend-mode: multiply;
+  }
+  #cur.big { width: 60px; height: 60px; background: var(--accent); }
+
+  /* ── Scroll progress ───────────────────────────────── */
+  #bar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 2px; width: 0%;
+    background: var(--ink);
+    z-index: 1001;
+    transition: width .08s linear;
+  }
+
+  /* ── Nav ───────────────────────────────────────────── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 900;
+    padding: 28px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    font-size: 13px; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase;
+    text-decoration: none; color: var(--ink);
+  }
+  .nav-links { display: flex; gap: 36px; list-style: none; }
+  .nav-links a {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    text-decoration: none; color: var(--ink); opacity: .45;
+    transition: opacity .2s;
+  }
+  .nav-links a:hover { opacity: 1; }
+
+  /* ── Hero ──────────────────────────────────────────── */
+  #hero {
+    min-height: 100vh;
+    padding: 0 48px 72px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    position: relative; overflow: hidden;
+  }
+
+  #hero-svg {
+    position: absolute; inset: 0;
+    pointer-events: none;
+  }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--mid); margin-bottom: 20px;
+    opacity: 0; transform: translateY(10px);
+    animation: up .8s var(--ease) .4s forwards;
+  }
+
+  h1 {
+    font-family: var(--f-serif);
+    font-size: clamp(52px, 9vw, 136px);
+    font-weight: 400; line-height: .95;
+    letter-spacing: -.03em; max-width: 1100px;
+    opacity: 0; transform: translateY(24px);
+    animation: up 1s var(--ease) .62s forwards;
+  }
+  h1 em { font-style: italic; color: var(--accent2); }
+
+  .hero-meta {
+    display: flex; gap: 56px; margin-top: 56px;
+    opacity: 0; transform: translateY(12px);
+    animation: up .8s var(--ease) .92s forwards;
+  }
+  .meta-item label {
+    display: block; font-size: 10px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--mid); margin-bottom: 4px;
+  }
+  .meta-item span { font-size: 14px; font-weight: 500; }
+
+  .scroll-hint {
+    position: absolute; right: 48px; bottom: 72px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    opacity: 0; animation: up .7s var(--ease) 1.3s forwards;
+  }
+  .scroll-hint p {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--mid); writing-mode: vertical-rl;
+  }
+  .scroll-line {
+    width: 1px; height: 52px; background: var(--mid);
+    animation: lineBreath 2s ease-in-out infinite 1.8s;
+  }
+
+  /* ── Reel frame ────────────────────────────────────── */
+  #reel { background: var(--paper); }
+  .reel-wrap {
+    width: 100%; aspect-ratio: 16/9;
+    background: var(--ink);
+    overflow: hidden; position: relative; cursor: none;
+  }
+  .reel-wrap svg { width: 100%; height: 100%; display: block; }
+  .play-badge {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: rgba(255,255,255,.4); pointer-events: none;
+  }
+  .play-ring {
+    width: 58px; height: 58px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,.25);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .play-ring svg { margin-left: 4px; }
+
+  /* ── Description ───────────────────────────────────── */
+  #desc {
+    padding: 120px 48px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 96px; max-width: 1400px; margin: 0 auto;
+  }
+  .sect-label {
+    font-size: 10px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--mid); margin-bottom: 24px;
+  }
+  .big-copy {
+    font-family: var(--f-serif);
+    font-size: clamp(22px, 2.6vw, 36px);
+    font-weight: 400; line-height: 1.3; letter-spacing: -.01em;
+  }
+  .body-copy { font-size: 15px; line-height: 1.8; color: var(--mid); }
+  .body-copy p + p { margin-top: 16px; }
+
+  .arr-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; text-decoration: none; color: var(--ink);
+    border-bottom: 1.5px solid var(--ink); padding-bottom: 3px;
+    margin-top: 28px; transition: gap .25s;
+  }
+  .arr-link:hover { gap: 18px; }
+
+  /* ── Marquee ───────────────────────────────────────── */
+  #ticker {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--accent); overflow: hidden;
+    padding: 18px 0; white-space: nowrap;
+  }
+  .ticker-inner {
+    display: inline-flex;
+    animation: ticker 22s linear infinite;
+  }
+  .ticker-inner span {
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink); padding: 0 44px;
+  }
+
+  /* ── Features ──────────────────────────────────────── */
+  #features {
+    padding: 80px 48px 120px;
+    background: var(--ink); color: var(--paper);
+  }
+  .feat-hdr {
+    font-size: 10px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: rgba(245,244,240,.35); margin-bottom: 56px;
+  }
+  .feat-grid {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    border: 1px solid rgba(245,244,240,.08);
+  }
+  .feat {
+    padding: 56px 40px;
+    border-right: 1px solid rgba(245,244,240,.08);
+    position: relative; overflow: hidden;
+    opacity: 0; transform: translateY(20px);
+    transition: opacity .7s var(--ease), transform .7s var(--ease);
+  }
+  .feat.vis { opacity: 1; transform: none; }
+  .feat:last-child { border-right: none; }
+  .feat::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px; background: var(--accent);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform .4s var(--ease);
+  }
+  .feat:hover::after { transform: scaleX(1); }
+  .feat-n {
+    font-size: 11px; font-weight: 600; letter-spacing: .12em;
+    color: rgba(245,244,240,.25); margin-bottom: 36px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .feat-n::after { content:''; flex:1; height:1px; background:rgba(245,244,240,.08); }
+  .feat-icon { margin-bottom: 24px; }
+  .feat h3 {
+    font-family: var(--f-serif);
+    font-size: clamp(20px,2vw,28px);
+    font-weight: 400; line-height: 1.2;
+    letter-spacing: -.02em; margin-bottom: 14px;
+  }
+  .feat p { font-size: 14px; line-height: 1.75; color: rgba(245,244,240,.45); }
+
+  /* ── Panels ────────────────────────────────────────── */
+  #panels { display: grid; grid-template-columns: 1fr 1fr; }
+  .panel { aspect-ratio: 4/5; position: relative; overflow: hidden; min-height: 560px; }
+  .panel > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .panel-tag {
+    position: absolute; bottom: 28px; left: 28px;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase;
+    padding: 8px 14px; border-radius: 2px;
+  }
+
+  /* ── Stats ─────────────────────────────────────────── */
+  #stats {
+    padding: 120px 48px;
+    display: grid; grid-template-columns: repeat(4,1fr);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    gap: 0;
+  }
+  .stat {
+    padding: 0 48px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:first-child { padding-left: 0; }
+  .stat:last-child  { border-right: none; }
+  .stat-n {
+    font-family: var(--f-serif);
+    font-size: clamp(44px,5vw,76px);
+    font-weight: 400; line-height: 1;
+    letter-spacing: -.04em; margin-bottom: 10px;
+  }
+  .stat-l { font-size: 13px; color: var(--mid); line-height: 1.5; }
+
+  /* ── CTA ───────────────────────────────────────────── */
+  #cta {
+    padding: 120px 48px;
+    position: relative; overflow: hidden;
+  }
+  .cta-eye {
+    font-size: 10px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--mid); margin-bottom: 28px;
+  }
+  #cta h2 {
+    font-family: var(--f-serif);
+    font-size: clamp(48px, 8vw, 120px);
+    font-weight: 400; line-height: .94; letter-spacing: -.04em;
+    max-width: 900px; margin-bottom: 48px;
+  }
+  #cta h2 em { font-style: italic; color: var(--accent2); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 14px;
+    text-decoration: none;
+    font-size: 12px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--paper);
+    background: var(--ink); padding: 16px 30px;
+    border-radius: 2px;
+    transition: background .2s, gap .25s;
+  }
+  .btn:hover { background: var(--accent2); gap: 22px; }
+  .bg-letters {
+    position: absolute; right: -20px; bottom: -80px;
+    font-family: var(--f-serif);
+    font-size: clamp(200px, 30vw, 480px);
+    line-height: 1; font-weight: 400; letter-spacing: -.06em;
+    color: var(--paper-warm);
+    pointer-events: none; user-select: none; z-index: 0;
+  }
+  #cta > *:not(.bg-letters) { position: relative; z-index: 1; }
+
+  /* ── Footer ────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--mid);
+  }
+  footer a { color: var(--mid); text-decoration: none; transition: color .2s; }
+  footer a:hover { color: var(--ink); }
+
+  /* ── Keyframes ─────────────────────────────────────── */
+  @keyframes up {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lineBreath {
+    0%,100% { transform: scaleY(1); opacity: 1; }
+    50%      { transform: scaleY(.35); opacity: .3; }
+  }
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  @keyframes blobMorph {
+    0%,100% { d: path("M420,80 C520,20 680,40 740,160 C800,280 760,420 660,480 C560,540 380,520 300,420 C220,320 200,200 280,120 C320,80 380,110 420,80Z"); }
+    33%     { d: path("M460,60 C570,10 700,70 730,200 C760,330 700,460 590,490 C480,520 340,490 280,380 C220,270 230,140 320,90 C370,60 420,80 460,60Z"); }
+    66%     { d: path("M390,95 C505,35 655,65 710,195 C760,325 720,445 615,492 C510,540 355,512 285,398 C215,285 212,158 305,98 C345,76 365,112 390,95Z"); }
+  }
+  @keyframes floatY {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-14px); }
+  }
+  @keyframes spinSlow {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes dashIn {
+    from { stroke-dashoffset: 600; }
+    to   { stroke-dashoffset: 0; }
+  }
+  /* pulse used on SVG circles — needs transform-box:fill-box so scale is from center */
+  .pulse-ring {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulseRing 3s ease-out infinite;
+  }
+  .pulse-ring-2 { animation-delay: 1s; }
+  .pulse-ring-3 { animation-delay: 2s; }
+  @keyframes pulseRing {
+    0%   { transform: scale(1); opacity: .65; }
+    100% { transform: scale(2.6); opacity: 0; }
+  }
+  @keyframes waveShift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-200px); }
+  }
+
+  /* ── Responsive ────────────────────────────────────── */
+  @media (max-width: 860px) {
+    nav { padding: 22px 24px; }
+    .nav-links { display: none; }
+    #hero, #desc, #features, #stats, #cta, footer { padding-left: 24px; padding-right: 24px; }
+    .hero-meta { gap: 28px; flex-wrap: wrap; }
+    #desc { grid-template-columns: 1fr; gap: 52px; padding-top: 72px; }
+    .feat-grid { grid-template-columns: 1fr; }
+    .feat { border-right: none; border-bottom: 1px solid rgba(245,244,240,.08); }
+    #panels { grid-template-columns: 1fr; }
+    #stats { grid-template-columns: 1fr 1fr; gap: 48px; padding: 80px 24px; }
+    .stat { border-right: none; padding: 0; }
+    #cta h2 { font-size: clamp(44px,12vw,80px); }
+    footer { flex-direction: column; gap: 12px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="bar"></div>
+
+<!-- NAV -->
+<nav>
+  <a class="logo" href="#">GhostCall</a>
+  <ul class="nav-links">
+    <li><a href="#features">Technology</a></li>
+    <li><a href="#desc">About</a></li>
+    <li><a href="#cta">GitHub</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <!-- SVG animated background -->
+  <svg id="hero-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="hg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%"   stop-color="#c8ff00" stop-opacity=".22"/>
+        <stop offset="100%" stop-color="#c8ff00" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="b16"><feGaussianBlur stdDeviation="18"/></filter>
+    </defs>
+
+    <!-- Morphing blob -->
+    <path filter="url(#b16)" fill="url(#hg)"
+      style="animation: blobMorph 14s ease-in-out infinite;"
+      d="M420,80 C520,20 680,40 740,160 C800,280 760,420 660,480 C560,540 380,520 300,420 C220,320 200,200 280,120 C320,80 380,110 420,80Z"/>
+
+    <!-- Orbit rings -->
+    <circle cx="940" cy="200" r="155" fill="none" stroke="rgba(10,10,10,.055)" stroke-width=".8"
+      style="animation:spinSlow 44s linear infinite; transform-origin:940px 200px;"/>
+    <circle cx="940" cy="200" r="220" fill="none" stroke="rgba(10,10,10,.035)" stroke-width=".8"
+      style="animation:spinSlow 68s linear infinite reverse; transform-origin:940px 200px;"/>
+    <!-- Dashed ring bottom-left -->
+    <circle cx="130" cy="720" r="190" fill="none" stroke="rgba(10,10,10,.06)"
+      stroke-width=".6" stroke-dasharray="5 9"
+      style="animation:spinSlow 90s linear infinite; transform-origin:130px 720px;"/>
+
+    <!-- Accent dots -->
+    <circle cx="950" cy="198" r="5.5" fill="#c8ff00"
+      style="animation:floatY 4.2s ease-in-out infinite;"/>
+    <circle cx="212" cy="156" r="3.5" fill="#ff3c00"
+      style="animation:floatY 5.8s ease-in-out infinite .7s;"/>
+    <circle cx="600" cy="620" r="3" fill="rgba(10,10,10,.18)"
+      style="animation:floatY 6.5s ease-in-out infinite 1.5s;"/>
+
+    <!-- Wave lines near bottom -->
+    <g style="animation:waveShift 9s linear infinite;" opacity=".07">
+      <path d="M-200,730 Q-100,710 0,730 Q100,750 200,730 Q300,710 400,730 Q500,750 600,730 Q700,710 800,730 Q900,750 1000,730 Q1100,710 1200,730 Q1300,750 1400,730"
+        fill="none" stroke="#0a0a0a" stroke-width="1"/>
+      <path d="M-200,752 Q-100,732 0,752 Q100,772 200,752 Q300,732 400,752 Q500,772 600,752 Q700,732 800,752 Q900,772 1000,752 Q1100,732 1200,752 Q1300,772 1400,752"
+        fill="none" stroke="#0a0a0a" stroke-width="1"/>
+    </g>
+  </svg>
+
+  <p class="eyebrow">Privacy — rebuilt from the ground up</p>
+
+  <h1>Suspiciously<br><em>private</em> voice calls</h1>
+
+  <div class="hero-meta">
+    <div class="meta-item"><label>Platform</label><span>Starknet + Tor</span></div>
+    <div class="meta-item"><label>Protocol</label><span>Noise_XX · NIP-59</span></div>
+    <div class="meta-item"><label>Identity</label><span>On-chain handle</span></div>
+    <div class="meta-item"><label>Status</label><span>Sepolia Testnet</span></div>
+  </div>
+
+  <div class="scroll-hint">
+    <div class="scroll-line"></div>
+    <p>Scroll</p>
+  </div>
+</section>
+
+<!-- REEL -->
+<section id="reel">
+  <div class="reel-wrap">
+    <svg viewBox="0 0 1200 675" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="rlg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stop-color="#0d0d0d"/>
+          <stop offset="100%" stop-color="#1a1a1a"/>
+        </linearGradient>
+        <radialGradient id="rg2" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#c8ff00" stop-opacity=".14"/>
+          <stop offset="100%" stop-color="#c8ff00" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Background -->
+      <rect width="1200" height="675" fill="url(#rlg)"/>
+
+      <!-- Glow pool -->
+      <ellipse cx="600" cy="338" rx="380" ry="260" fill="url(#rg2)"/>
+
+      <!-- Subtle grid -->
+      <g stroke="rgba(255,255,255,.04)" stroke-width=".5">
+        <line x1="0" y1="225" x2="1200" y2="225"/>
+        <line x1="0" y1="450" x2="1200" y2="450"/>
+        <line x1="300" y1="0" x2="300" y2="675"/>
+        <line x1="600" y1="0" x2="600" y2="675"/>
+        <line x1="900" y1="0" x2="900" y2="675"/>
+      </g>
+
+      <!-- Pulse rings — SMIL animate for reliable SVG scaling from center -->
+      <circle cx="600" cy="338" r="80" fill="none" stroke="rgba(200,255,0,.5)" stroke-width="1.5">
+        <animate attributeName="r" values="80;200;80" dur="3s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;0;0.7" dur="3s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="600" cy="338" r="80" fill="none" stroke="rgba(200,255,0,.3)" stroke-width="1">
+        <animate attributeName="r" values="80;200;80" dur="3s" begin="1s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5;0;0.5" dur="3s" begin="1s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="600" cy="338" r="80" fill="none" stroke="rgba(200,255,0,.15)" stroke-width=".8">
+        <animate attributeName="r" values="80;200;80" dur="3s" begin="2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.35;0;0.35" dur="3s" begin="2s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Core disc -->
+      <circle cx="600" cy="338" r="76" fill="rgba(200,255,0,.05)" stroke="rgba(200,255,0,.5)" stroke-width="1.5"/>
+
+      <!-- Waveform — SMIL animate on stroke-dashoffset for reliable cross-browser draw-on -->
+      <path id="reel-wave"
+        d="M508,338 L524,338 L536,316 L548,360 L560,324 L572,352 L584,320 L596,356 L608,324 L620,352 L632,328 L644,348 L656,338 L676,338 L692,338"
+        stroke="rgba(200,255,0,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        fill="none" stroke-dasharray="400" stroke-dashoffset="400">
+        <animate attributeName="stroke-dashoffset" values="400;0;400" dur="3s"
+          repeatCount="indefinite" calcMode="spline"
+          keyTimes="0;0.5;1" keySplines="0.4 0 0.2 1;0.4 0 0.2 1"/>
+      </path>
+
+      <!-- Lock icon centered at 600,338 -->
+      <g transform="translate(586,318)">
+        <rect x="0" y="14" width="28" height="20" rx="3"
+          fill="rgba(200,255,0,.12)" stroke="rgba(200,255,0,.7)" stroke-width="1.5"/>
+        <path d="M5,14 L5,9 C5,5.134 7.686,2 14,2 C20.314,2 23,5.134 23,9 L23,14"
+          fill="none" stroke="rgba(200,255,0,.7)" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="14" cy="23" r="3" fill="rgba(200,255,0,.9)"/>
+      </g>
+
+      <!-- Corner labels -->
+      <text x="44" y="644" font-family="Helvetica Neue,sans-serif" font-size="10"
+        fill="rgba(255,255,255,.18)" letter-spacing="2">GHOSTCALL · ENCRYPTED · TOR · STARKNET</text>
+      <text x="1156" y="644" text-anchor="end" font-family="Helvetica Neue,sans-serif" font-size="10"
+        fill="rgba(255,255,255,.18)" letter-spacing="2">SEPOLIA TESTNET · 2026</text>
+    </svg>
+
+    <div class="play-badge">
+      <div class="play-ring">
+        <svg width="16" height="18" viewBox="0 0 16 18" fill="rgba(255,255,255,.8)">
+          <polygon points="2,1 15,9 2,17"/>
+        </svg>
+      </div>
+      Watch the demo
+    </div>
+  </div>
+</section>
+
+<!-- DESCRIPTION -->
+<section id="desc">
+  <div>
+    <p class="sect-label">The project</p>
+    <p class="big-copy">
+      Voice calls so private they border on&nbsp;<em style="font-style:italic">suspicious</em>.
+      No servers. No metadata. No trace.
+    </p>
+    <a class="arr-link" href="#features">
+      How it works
+      <svg width="18" height="10" viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M0 5h16M12 1l5 4-5 4"/>
+      </svg>
+    </a>
+  </div>
+  <div>
+    <p class="sect-label">Overview</p>
+    <div class="body-copy">
+      <p>GhostCall routes every call through the Tor onion network, encrypted end-to-end with the Noise_XX protocol. Your identity is a Starknet wallet — pseudonymous by default, anonymous if you choose.</p>
+      <p>Handles are registered on-chain. Call routing happens over Nostr NIP-59 gift-wrapped events. Payments clear via ERC-5564 stealth addresses and an optional STRK20 privacy pool.</p>
+      <p>Nothing touches a central server. Built for a world where privacy isn't a feature — it's the whole point.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div id="ticker">
+  <div class="ticker-inner">
+    <span>End-to-End Encrypted</span>
+    <span>· Tor Onion Routing</span>
+    <span>· Noise_XX Handshake</span>
+    <span>· Starknet Identity</span>
+    <span>· Stealth Payments</span>
+    <span>· Zero Servers</span>
+    <span>· NIP-59 Signaling</span>
+    <span>· Forward Secrecy</span>
+    <!-- dup for seamless loop -->
+    <span>· End-to-End Encrypted</span>
+    <span>· Tor Onion Routing</span>
+    <span>· Noise_XX Handshake</span>
+    <span>· Starknet Identity</span>
+    <span>· Stealth Payments</span>
+    <span>· Zero Servers</span>
+    <span>· NIP-59 Signaling</span>
+    <span>· Forward Secrecy</span>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <p class="feat-hdr">Core technology — 03 pillars</p>
+  <div class="feat-grid">
+
+    <div class="feat">
+      <div class="feat-n">01</div>
+      <div class="feat-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="21" stroke="rgba(200,255,0,.2)"  stroke-width=".8"/>
+          <circle cx="24" cy="24" r="15" stroke="rgba(200,255,0,.4)"  stroke-width="1"/>
+          <circle cx="24" cy="24" r="9"  stroke="rgba(200,255,0,.7)"  stroke-width="1.5"/>
+          <circle cx="24" cy="24" r="3.5" fill="#c8ff00"/>
+          <circle cx="24" cy="24" r="21" fill="none" stroke="rgba(200,255,0,.15)" stroke-width=".8">
+            <animate attributeName="r" values="21;42;21" dur="2.6s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.5;0;0.5" dur="2.6s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+      </div>
+      <h3>Tor Onion<br>Routing</h3>
+      <p>Every call travels through three encrypted relays. Your IP is invisible to your peer, the network, and any observer.</p>
+    </div>
+
+    <div class="feat" style="transition-delay:.14s;">
+      <div class="feat-n">02</div>
+      <div class="feat-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <defs>
+            <linearGradient id="wl" x1="0" y1="0" x2="48" y2="0">
+              <stop offset="0%"   stop-color="#c8ff00"/>
+              <stop offset="100%" stop-color="#ff3c00"/>
+            </linearGradient>
+          </defs>
+          <rect x="1" y="1" width="46" height="46" rx="4" stroke="rgba(200,255,0,.18)" stroke-width=".8"/>
+          <path d="M4,24 L10,24 L14,10 L18,38 L22,18 L25,30 L29,16 L33,32 L37,24 L44,24"
+            stroke="url(#wl)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            fill="none"
+            style="animation:dashIn 2.2s ease-in-out infinite alternate; stroke-dasharray:140; stroke-dashoffset:140;"/>
+        </svg>
+      </div>
+      <h3>Noise_XX<br>Handshake</h3>
+      <p>Mutual authentication with forward secrecy. Both parties verify each other's static keys before a single audio byte travels.</p>
+    </div>
+
+    <div class="feat" style="transition-delay:.28s;">
+      <div class="feat-n">03</div>
+      <div class="feat-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M24,3 L42,11 L42,26 C42,36 33,43 24,45 C15,43 6,36 6,26 L6,11 Z"
+            fill="rgba(200,255,0,.07)" stroke="rgba(200,255,0,.55)" stroke-width="1.5"/>
+          <path d="M24,3 L42,11 L42,26 C42,36 33,43 24,45 C15,43 6,36 6,26 L6,11 Z"
+            fill="none" stroke="rgba(200,255,0,.12)" stroke-width="9"/>
+          <polyline points="16,24 22,30 33,18"
+            stroke="#c8ff00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+            style="animation:dashIn 1.6s ease-out .4s forwards; stroke-dasharray:36; stroke-dashoffset:36;"/>
+        </svg>
+      </div>
+      <h3>Starknet<br>Identity</h3>
+      <p>Your handle is an on-chain name — not a phone number. Pay peers with stealth addresses so transactions can't be linked to you.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- PANELS -->
+<section id="panels">
+
+  <!-- Panel A — phone call UI -->
+  <div class="panel" style="background:#ede9e1;">
+    <svg viewBox="0 0 600 750" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">
+      <defs>
+        <radialGradient id="pg1" cx="50%" cy="65%" r="65%">
+          <stop offset="0%"   stop-color="#c8ff00" stop-opacity=".22"/>
+          <stop offset="100%" stop-color="#ede9e1" stop-opacity="0"/>
+        </radialGradient>
+        <!-- Screen glass gradient -->
+        <linearGradient id="screenGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#1a1a1a"/>
+          <stop offset="100%" stop-color="#0d0d0d"/>
+        </linearGradient>
+      </defs>
+
+      <rect width="600" height="750" fill="#ede9e1"/>
+      <ellipse cx="300" cy="520" rx="310" ry="200" fill="url(#pg1)"/>
+
+      <!-- Phone shell -->
+      <rect x="168" y="100" width="264" height="550" rx="38"
+        fill="#e8e6df" stroke="#0a0a0a" stroke-width="2"/>
+      <!-- Side buttons -->
+      <rect x="166" y="220" width="4" height="36" rx="2" fill="rgba(10,10,10,.18)"/>
+      <rect x="166" y="270" width="4" height="60" rx="2" fill="rgba(10,10,10,.18)"/>
+      <rect x="430" y="240" width="4" height="50" rx="2" fill="rgba(10,10,10,.18)"/>
+      <!-- Screen -->
+      <rect x="180" y="138" width="240" height="474" rx="26" fill="url(#screenGrad)"/>
+      <!-- Dynamic island -->
+      <rect x="256" y="150" width="88" height="22" rx="11" fill="#0a0a0a"/>
+      <!-- Home bar -->
+      <rect x="256" y="588" width="88" height="5" rx="2.5" fill="rgba(255,255,255,.18)"/>
+
+      <!-- Status bar -->
+      <text x="196" y="173" font-family="Helvetica Neue,sans-serif" font-size="11" font-weight="600"
+        fill="rgba(255,255,255,.5)">9:41</text>
+      <g fill="rgba(255,255,255,.4)">
+        <rect x="388" y="164" width="14" height="8" rx="1.5"/>
+        <rect x="374" y="166" width="10" height="6" rx="1"/>
+        <circle cx="367" cy="168" r="4"/>
+      </g>
+
+      <!-- Call duration -->
+      <text x="300" y="208" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="11" fill="rgba(255,255,255,.3)" letter-spacing="2">ENCRYPTED CALL</text>
+      <text x="300" y="228" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="13" fill="rgba(255,255,255,.5)" letter-spacing="1">12:34</text>
+
+      <!-- Avatar ring — pulsing -->
+      <circle cx="300" cy="320" r="56" fill="rgba(200,255,0,.06)" stroke="rgba(200,255,0,.25)" stroke-width="1">
+        <animate attributeName="r" values="56;72;56" dur="2.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="300" cy="320" r="52" fill="rgba(200,255,0,.1)" stroke="rgba(200,255,0,.5)" stroke-width="1.5"/>
+      <!-- Ghost icon -->
+      <text x="300" y="332" text-anchor="middle" font-size="36">👻</text>
+
+      <!-- Caller name -->
+      <text x="300" y="398" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="18" font-weight="600" fill="rgba(255,255,255,.9)" letter-spacing="-.3">@bob1</text>
+      <text x="300" y="418" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="11" fill="rgba(200,255,0,.6)" letter-spacing="1.5">NOISE_XX · TOR</text>
+
+      <!-- Live waveform — repeating draw-on -->
+      <path d="M196,455 L210,455 L218,438 L228,472 L237,444 L246,462 L255,438 L264,468 L273,446 L282,460 L291,440 L300,464 L309,444 L318,458 L327,440 L336,462 L345,448 L354,455 L368,455 L382,455 L396,455 L404,455"
+        stroke="#c8ff00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+        fill="none" stroke-dasharray="500" stroke-dashoffset="500">
+        <animate attributeName="stroke-dashoffset" values="500;0;500" dur="2.4s"
+          repeatCount="indefinite" keyTimes="0;0.5;1" calcMode="spline"
+          keySplines="0.4 0 0.2 1;0.4 0 0.2 1"/>
+      </path>
+
+      <!-- Action buttons row -->
+      <!-- Mute -->
+      <circle cx="216" cy="520" r="28" fill="rgba(255,255,255,.1)"/>
+      <text x="216" y="527" text-anchor="middle" font-size="16">🔇</text>
+      <text x="216" y="558" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="10" fill="rgba(255,255,255,.3)">mute</text>
+      <!-- End call — red -->
+      <circle cx="300" cy="520" r="28" fill="#ff3c00"/>
+      <!-- phone-down icon -->
+      <path d="M289,518 Q300,512 311,518 L311,524 Q311,528 308,528 L304,528 L304,525 Q300,523 296,525 L296,528 L292,528 Q289,528 289,524 Z"
+        fill="white"/>
+      <!-- Speaker -->
+      <circle cx="384" cy="520" r="28" fill="rgba(255,255,255,.1)"/>
+      <text x="384" y="527" text-anchor="middle" font-size="16">🔊</text>
+      <text x="384" y="558" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="10" fill="rgba(255,255,255,.3)">speaker</text>
+
+      <!-- Bottom label -->
+      <text x="300" y="710" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="10" fill="rgba(10,10,10,.28)" letter-spacing="2">GHOSTCALL · NOISE RESPONDER</text>
+    </svg>
+    <div class="panel-tag" style="background:var(--paper); color:var(--ink);">Encrypted call</div>
+  </div>
+
+  <!-- Panel B — Nostr message routing flow: Caller → Relay → Callee -->
+  <div class="panel" style="background:#0d0d0d;">
+    <svg viewBox="0 0 600 750" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">
+      <defs>
+        <radialGradient id="pg2" cx="50%" cy="50%" r="60%">
+          <stop offset="0%"   stop-color="#c8ff00" stop-opacity=".07"/>
+          <stop offset="100%" stop-color="#0d0d0d" stop-opacity="0"/>
+        </radialGradient>
+        <!-- Path for packet animation: Caller(left) → Relay1(top) → Relay2(mid) → Callee(right) -->
+        <!-- Horizontal flow path -->
+      </defs>
+
+      <rect width="600" height="750" fill="#0d0d0d"/>
+      <ellipse cx="300" cy="375" rx="300" ry="300" fill="url(#pg2)"/>
+
+      <!-- ── FLOW: Caller ──► Relay A ──► Relay B ──► Callee ── -->
+      <!-- Laid out left-to-right across the panel -->
+
+      <!-- Flow path lines (static, dim) -->
+      <!-- Caller → RelayA -->
+      <line x1="110" y1="375" x2="230" y2="250" stroke="rgba(200,255,0,.2)" stroke-width="1" stroke-dasharray="4 6"/>
+      <!-- RelayA → RelayB -->
+      <line x1="230" y1="250" x2="370" y2="250" stroke="rgba(200,255,0,.2)" stroke-width="1" stroke-dasharray="4 6"/>
+      <!-- RelayB → RelayC -->
+      <line x1="370" y1="250" x2="490" y2="375" stroke="rgba(200,255,0,.2)" stroke-width="1" stroke-dasharray="4 6"/>
+      <!-- Also show alternate path via bottom relay -->
+      <line x1="230" y1="250" x2="300" y2="490" stroke="rgba(255,255,255,.07)" stroke-width="1" stroke-dasharray="3 8"/>
+      <line x1="300" y1="490" x2="490" y2="375" stroke="rgba(255,255,255,.07)" stroke-width="1" stroke-dasharray="3 8"/>
+
+      <!-- ── NODES ── -->
+
+      <!-- CALLER node — left -->
+      <circle cx="110" cy="375" r="36" fill="rgba(200,255,0,.1)" stroke="rgba(200,255,0,.6)" stroke-width="1.5"/>
+      <text x="110" y="370" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="9" font-weight="700" fill="rgba(200,255,0,.9)" letter-spacing="1">CALLER</text>
+      <text x="110" y="384" text-anchor="middle" font-size="14">📱</text>
+      <text x="110" y="422" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="9" fill="rgba(255,255,255,.25)" letter-spacing="1">@alice</text>
+
+      <!-- RELAY A — top middle -->
+      <circle cx="230" cy="250" r="28" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+      <text x="230" y="246" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" font-weight="700" fill="rgba(255,255,255,.5)" letter-spacing="1">RELAY</text>
+      <text x="230" y="258" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" fill="rgba(255,255,255,.25)">nostr.band</text>
+      <text x="230" y="288" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" fill="rgba(255,255,255,.15)" letter-spacing=".5">NIP-59</text>
+
+      <!-- RELAY B — top right -->
+      <circle cx="370" cy="250" r="28" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+      <text x="370" y="246" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" font-weight="700" fill="rgba(255,255,255,.5)" letter-spacing="1">RELAY</text>
+      <text x="370" y="258" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" fill="rgba(255,255,255,.25)">relay.damus</text>
+      <text x="370" y="288" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" fill="rgba(255,255,255,.15)" letter-spacing=".5">GIFT-WRAP</text>
+
+      <!-- RELAY C — bottom middle (redundant path) -->
+      <circle cx="300" cy="490" r="22" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.1)" stroke-width=".8"/>
+      <text x="300" y="487" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="7" fill="rgba(255,255,255,.2)">RELAY</text>
+      <text x="300" y="498" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="7" fill="rgba(255,255,255,.12)">nos.lol</text>
+
+      <!-- CALLEE node — right -->
+      <circle cx="490" cy="375" r="36" fill="rgba(255,60,0,.1)" stroke="rgba(255,60,0,.5)" stroke-width="1.5"/>
+      <text x="490" y="370" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="9" font-weight="700" fill="rgba(255,120,60,.9)" letter-spacing="1">CALLEE</text>
+      <text x="490" y="384" text-anchor="middle" font-size="14">📱</text>
+      <text x="490" y="422" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="9" fill="rgba(255,255,255,.25)" letter-spacing="1">@bob1</text>
+
+      <!-- ── ANIMATED PACKETS — travel Caller→RelayA→RelayB→Callee ── -->
+      <!-- Segment paths for animateMotion -->
+      <path id="flow-seg1" d="M110,375 L230,250" fill="none"/>
+      <path id="flow-seg2" d="M230,250 L370,250" fill="none"/>
+      <path id="flow-seg3" d="M370,250 L490,375" fill="none"/>
+
+      <!-- Packet 1 — green, full journey, staggered start -->
+      <circle r="5" fill="#c8ff00">
+        <animateMotion dur="0.55s" begin="0s" fill="freeze" repeatCount="indefinite" restart="always">
+          <mpath href="#flow-seg1"/>
+        </animateMotion>
+      </circle>
+      <circle r="5" fill="#c8ff00" opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.36;0.37;0.72;0.73" dur="2.2s" repeatCount="indefinite"/>
+        <animateMotion dur="0.5s" begin="0.8s" repeatCount="indefinite">
+          <mpath href="#flow-seg2"/>
+        </animateMotion>
+      </circle>
+      <circle r="5" fill="#c8ff00" opacity="0">
+        <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.59;0.6;0.95;0.96" dur="2.2s" repeatCount="indefinite"/>
+        <animateMotion dur="0.55s" begin="1.5s" repeatCount="indefinite">
+          <mpath href="#flow-seg3"/>
+        </animateMotion>
+      </circle>
+
+      <!-- Packet 2 — orange, delayed for second message -->
+      <circle r="4" fill="#ff3c00" opacity="0">
+        <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.01;0.45;0.46" dur="2.8s" begin="1.2s" repeatCount="indefinite"/>
+        <animateMotion dur="0.55s" begin="1.2s" repeatCount="indefinite">
+          <mpath href="#flow-seg1"/>
+        </animateMotion>
+      </circle>
+      <circle r="4" fill="#ff3c00" opacity="0">
+        <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.01;0.45;0.46" dur="2.8s" begin="1.9s" repeatCount="indefinite"/>
+        <animateMotion dur="0.5s" begin="1.9s" repeatCount="indefinite">
+          <mpath href="#flow-seg2"/>
+        </animateMotion>
+      </circle>
+      <circle r="4" fill="#ff3c00" opacity="0">
+        <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.01;0.45;0.46" dur="2.8s" begin="2.5s" repeatCount="indefinite"/>
+        <animateMotion dur="0.55s" begin="2.5s" repeatCount="indefinite">
+          <mpath href="#flow-seg3"/>
+        </animateMotion>
+      </circle>
+
+      <!-- ── LABELS ── -->
+      <!-- Arrow labels on segments -->
+      <text x="165" y="298" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" fill="rgba(200,255,0,.35)" letter-spacing="1"
+        transform="rotate(-42,165,298)">GIFT-WRAP</text>
+      <text x="300" y="238" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" fill="rgba(200,255,0,.35)" letter-spacing="1">ENCRYPTED</text>
+      <text x="435" y="298" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="8" fill="rgba(200,255,0,.35)" letter-spacing="1"
+        transform="rotate(42,435,298)">DELIVERED</text>
+
+      <!-- Legend -->
+      <g transform="translate(30,640)">
+        <circle cx="6" cy="6" r="4" fill="#c8ff00"/>
+        <text x="16" y="10" font-family="Helvetica Neue,sans-serif" font-size="9"
+          fill="rgba(255,255,255,.3)" letter-spacing=".5">Call offer (kind-1059)</text>
+        <circle cx="6" cy="22" r="3.5" fill="#ff3c00"/>
+        <text x="16" y="26" font-family="Helvetica Neue,sans-serif" font-size="9"
+          fill="rgba(255,255,255,.3)" letter-spacing=".5">ACK / response</text>
+      </g>
+
+      <text x="300" y="718" text-anchor="middle" font-family="Helvetica Neue,sans-serif"
+        font-size="10" fill="rgba(255,255,255,.15)" letter-spacing="2">NOSTR NIP-59 · GIFT-WRAP ROUTING</text>
+    </svg>
+    <div class="panel-tag" style="color:rgba(245,244,240,.6); border:1px solid rgba(245,244,240,.12);">
+      Nostr routing flow
+    </div>
+  </div>
+
+</section>
+
+<!-- STATS -->
+<section id="stats">
+  <div class="stat">
+    <div class="stat-n"><span class="cnt" data-t="3">0</span> hops</div>
+    <div class="stat-l">Tor onion layers between you and your peer</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n"><span class="cnt" data-t="0">0</span> servers</div>
+    <div class="stat-l">No central relay, broker, or signaling server</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n"><span class="cnt" data-t="256">0</span>-bit</div>
+    <div class="stat-l">Noise_XX encryption with forward secrecy</div>
+  </div>
+  <div class="stat">
+    <div class="stat-n"><span class="cnt" data-t="100">0</span>%</div>
+    <div class="stat-l">Open-source — every line on GitHub</div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta">
+  <p class="cta-eye">Get started</p>
+  <h2>Your call.<br>Your <em>keys.</em></h2>
+  <a class="btn" href="https://github.com/Philotheephilix/ghostcall" target="_blank" rel="noopener">
+    View on GitHub
+    <svg width="18" height="10" viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M0 5h16M12 1l5 4-5 4"/>
+    </svg>
+  </a>
+  <span class="bg-letters" aria-hidden="true">GC</span>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span>© 2026 GhostCall — Private by design</span>
+  <span>Starknet Sepolia · Tor · Nostr</span>
+  <a href="https://github.com/Philotheephilix/ghostcall" target="_blank" rel="noopener">GitHub ↗</a>
+</footer>
+
+<script>
+// ── Cursor ─────────────────────────────────────────────
+const cur = document.getElementById('cur')
+let mx = -200, my = -200, cx = -200, cy = -200
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY })
+;(function loop() {
+  cx += (mx - cx) * 0.17
+  cy += (my - cy) * 0.17
+  cur.style.left = cx + 'px'
+  cur.style.top  = cy + 'px'
+  requestAnimationFrame(loop)
+})()
+document.querySelectorAll('a, button, .feat, .panel, .btn').forEach(el => {
+  el.addEventListener('mouseenter', () => cur.classList.add('big'))
+  el.addEventListener('mouseleave', () => cur.classList.remove('big'))
+})
+
+// ── Scroll progress ────────────────────────────────────
+const bar = document.getElementById('bar')
+window.addEventListener('scroll', () => {
+  bar.style.width = (window.scrollY / (document.body.scrollHeight - innerHeight) * 100) + '%'
+}, { passive: true })
+
+// ── Feature cell reveal ────────────────────────────────
+const io = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) e.target.classList.add('vis') })
+}, { threshold: 0.15 })
+document.querySelectorAll('.feat').forEach(el => io.observe(el))
+
+// ── Counter animation ──────────────────────────────────
+function runCounter(el) {
+  const target = +el.dataset.t
+  const dur = 1600, t0 = performance.now()
+  function frame(now) {
+    const p = Math.min((now - t0) / dur, 1)
+    const e = 1 - Math.pow(1 - p, 4)
+    el.textContent = Math.round(e * target)
+    if (p < 1) requestAnimationFrame(frame)
+    else el.textContent = target
+  }
+  requestAnimationFrame(frame)
+}
+const sIo = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('.cnt').forEach(runCounter)
+      sIo.unobserve(e.target)
+    }
+  })
+}, { threshold: 0.3 })
+sIo.observe(document.getElementById('stats'))
+
+// ── Hero parallax ──────────────────────────────────────
+const ht = document.querySelector('h1')
+const hsvg = document.getElementById('hero-svg')
+window.addEventListener('scroll', () => {
+  const y = window.scrollY
+  if (ht)   ht.style.transform   = `translateY(${y * 0.16}px)`
+  if (hsvg) hsvg.style.transform = `translateY(${y * 0.07}px)`
+}, { passive: true })
+</script>
+</body>
+</html>

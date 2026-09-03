@@ -18,3 +18,11 @@ screenshots/
 
 # Hackathon registry fork — a separate git repo, cloned here for the PR workflow
 strk20-hackathon/
+
+# Judge submission cleanup
+test-results/
+renderer/out/
+.npmrc
+scripts/.bob1-key
+*.bak
+pitch-deck/
