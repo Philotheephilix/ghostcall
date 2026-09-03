@@ -10,7 +10,6 @@ docs/
 *.js.map
 out/
 skills-lock.json
-screenshots/
 
 # Tooling / local agent config — not part of the app
 .claude/
