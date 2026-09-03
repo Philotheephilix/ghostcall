@@ -145,82 +145,73 @@ const FEATURE_ITEMS = [
 // ── Welcome ────────────────────────────────────────────────────────────────
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, width: '100%', maxWidth: 360, position: 'relative' }}>
-      {/* Iridescence background */}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 360, position: 'relative' }}>
+      {/* Subtle line waves — full viewport bleed, very low opacity */}
       <div style={{
-        position: 'absolute', inset: '-60px -80px', zIndex: 0,
-        pointerEvents: 'none', opacity: 0.45,
+        position: 'fixed', inset: 0, zIndex: 0,
+        pointerEvents: 'none',
       }}>
         <LineWaves
           color1="#C6F135"
-          color2="#a8d420"
-          color3="#e8ff60"
-          speed={0.3}
-          brightness={0.35}
-          warpIntensity={1.0}
-          innerLineCount={30}
-          outerLineCount={34}
-          rotation={-40}
-          colorCycleSpeed={0.5}
+          color2="#8aaa10"
+          color3="#C6F135"
+          speed={0.2}
+          brightness={0.07}
+          warpIntensity={0.5}
+          innerLineCount={20}
+          outerLineCount={24}
+          rotation={-30}
+          colorCycleSpeed={0.25}
           enableMouseInteraction={false}
         />
       </div>
 
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <Logo size={64} glowColor="rgba(198,241,53,0.9)" />
+      {/* Dark scrim so content reads cleanly over the waves */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at center, rgba(10,10,8,0.55) 0%, rgba(10,10,8,0.82) 100%)',
+      }} />
+
+      {/* Logo */}
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: 32 }}>
+        <Logo size={52} glowColor="rgba(198,241,53,0.7)" />
       </div>
 
-      <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+      {/* Wordmark + tagline */}
+      <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, marginBottom: 48 }}>
         <h1 style={{
-          fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 700,
-          letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 12,
+          fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700,
+          letterSpacing: '0.08em', lineHeight: 1, marginBottom: 10,
           color: 'var(--label-primary)',
         }}>
           GHOSTCALL
         </h1>
         <p style={{
-          fontFamily: 'var(--font-mono)', fontSize: 11,
-          color: 'var(--label-quaternary)', lineHeight: 1.7,
-          letterSpacing: '0.06em', textTransform: 'uppercase',
-          maxWidth: 240, margin: '0 auto',
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: 'var(--label-quaternary)', lineHeight: 1,
+          letterSpacing: '0.12em', textTransform: 'uppercase',
         }}>
-          No IP &nbsp;·&nbsp; No relay &nbsp;·&nbsp; No trace
+          no ip · no relay · no trace
         </p>
       </div>
 
-      {/* Feature list — terminal style */}
-      <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+      {/* Feature list */}
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', marginBottom: 48 }}>
         {FEATURE_ITEMS.map((item, i) => (
           <div key={item.id} style={{
-            display: 'flex', alignItems: 'flex-start', gap: 12,
-            padding: '10px 0',
-            borderBottom: i < FEATURE_ITEMS.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: '12px 0',
+            borderBottom: i < FEATURE_ITEMS.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
           }}>
-            <div style={{
-              width: 24, height: 24, borderRadius: 4,
-              background: 'rgba(198,241,53,0.08)',
-              border: '1px solid rgba(198,241,53,0.15)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-              color: 'var(--accent)',
-            }}>
+            <div style={{ color: 'rgba(198,241,53,0.5)', flexShrink: 0 }}>
               {item.icon}
             </div>
-            <div>
-              <p style={{
-                fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
-                color: 'var(--label-secondary)', letterSpacing: '0.04em',
-                marginBottom: 2,
-              }}>
-                {item.title}
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-mono)', fontSize: 10,
-                color: 'var(--label-quaternary)', lineHeight: 1.5, letterSpacing: '0.02em',
-              }}>
-                {item.description}
-              </p>
-            </div>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 11,
+              color: 'var(--label-tertiary)', letterSpacing: '0.03em',
+            }}>
+              {item.title}
+            </span>
           </div>
         ))}
       </div>
