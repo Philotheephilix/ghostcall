@@ -7,6 +7,7 @@ import CallHistory from '../../components/CallHistory'
 import PaymentModal from '../../components/PaymentModal'
 import PaymentsPage from '../../components/PaymentsPage'
 import Dock from '../../components/Dock'
+import Dither from '../../components/Dither'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import { appendCallLog, markCallPaid, loadState } from '../../lib/app-state'
 
@@ -91,16 +92,23 @@ export default function Home() {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Ambient glow — only when Tor connected */}
-      {torOk && (
-        <div style={{
-          position: 'absolute',
-          top: -60, left: '50%', transform: 'translateX(-50%)',
-          width: 360, height: 240,
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(198,241,53,0.06) 0%, transparent 72%)',
-          pointerEvents: 'none',
-        }} />
-      )}
+      {/* Dither background — full viewport, behind all content */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+        opacity: torOk ? 0.28 : 0.12,
+        transition: 'opacity 1.2s ease',
+      }}>
+        <Dither
+          waveColor={torOk ? [0.773, 0.945, 0.208] : [0.18, 0.18, 0.16]}
+          backgroundColor={[0.04, 0.04, 0.031]}
+          waveSpeed={0.03}
+          waveFrequency={2.5}
+          waveAmplitude={0.35}
+          colorNum={4}
+          pixelSize={3}
+          enableMouseInteraction={false}
+        />
+      </div>
 
       {/* Header strip */}
       <div style={{
@@ -110,6 +118,7 @@ export default function Home() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        position: 'relative', zIndex: 1,
       }}>
         {/* Identity badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -161,7 +170,7 @@ export default function Home() {
       </div>
 
       {/* Main content */}
-      <div style={{ width: '100%', maxWidth: 420, padding: '28px 20px 0', flex: 1 }}>
+      <div style={{ width: '100%', maxWidth: 420, padding: '28px 20px 0', flex: 1, position: 'relative', zIndex: 1 }}>
 
         {activeTab === 'dial' && (
           <>

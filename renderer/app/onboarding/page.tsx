@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Logo from '../../components/Logo'
 import GradientWaves from '../../components/GradientWaves'
 import Carousel from '../../components/Carousel'
+import Dither from '../../components/Dither'
 import { loadState, saveState, clearState } from '../../lib/app-state'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import SeedGrid from '../../components/SeedGrid'
@@ -145,12 +146,23 @@ const FEATURE_ITEMS = [
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, width: '100%', maxWidth: 360, position: 'relative' }}>
-      {/* Ambient accent glow */}
+      {/* Dither background */}
       <div style={{
-        position: 'absolute', top: -80, left: '50%', transform: 'translateX(-50%)',
-        width: 300, height: 200, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse at 50% 0%, rgba(198,241,53,0.08) 0%, transparent 72%)',
-      }} />
+        position: 'absolute', inset: '-40px -60px', zIndex: 0,
+        pointerEvents: 'none', opacity: 0.18,
+      }}>
+        <Dither
+          waveColor={[0.773, 0.945, 0.208]}
+          backgroundColor={[0.04, 0.04, 0.031]}
+          waveSpeed={0.025}
+          waveFrequency={2.2}
+          waveAmplitude={0.32}
+          colorNum={4}
+          pixelSize={3}
+          disableAnimation={false}
+          enableMouseInteraction={false}
+        />
+      </div>
 
       <div style={{ position: 'relative', zIndex: 1 }}>
         <Logo size={64} glowColor="rgba(198,241,53,0.9)" />
