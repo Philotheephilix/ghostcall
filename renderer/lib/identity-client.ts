@@ -40,6 +40,7 @@ export function onIdentityReady(
     const id = setTimeout(() => cb(cached), 0)
     return () => clearTimeout(id)
   }
+  if (!gc()?.onIdentityReady) return () => {}
   return gc().onIdentityReady((data: { source: string; address?: string; error?: string }) => {
     // Only cache a resolved identity (non-empty source: env | seed | zkey). A
     // source: '' event is the transient "no identity yet" state — caching it
