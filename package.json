@@ -11,11 +11,14 @@
     "build": "next build renderer && npm run bundle:electron && electron-builder",
     "build:mac": "next build renderer && npm run bundle:electron && electron-builder --mac",
     "build:mac:arm64": "next build renderer && npm run bundle:electron && electron-builder --mac --arm64",
-    "test": "scarb test"
+    "test": "scarb test",
+    "test:unit": "jest",
+    "test:e2e": "playwright test"
   },
   "keywords": [],
   "author": "Philotheephilix",
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/jest": "^30.0.0",
@@ -30,6 +33,7 @@
     "electron-builder": "^25.1.8",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.5.0",
+    "serve": "^14.2.6",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.12",

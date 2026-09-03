@@ -52,11 +52,11 @@ function DockItem({ children, onClick, mouseX, spring, distance, magnification, 
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 'var(--radius-md)',
-        background: active ? 'rgba(10,132,255,0.18)' : 'var(--glass-regular)',
-        border: active ? '0.5px solid rgba(10,132,255,0.4)' : '0.5px solid var(--glass-border-sub)',
+        background: active ? '#C6F135' : 'var(--glass-regular)',
+        border: active ? '0.5px solid #C6F135' : '0.5px solid var(--glass-border-sub)',
         cursor: 'pointer',
         outline: 'none',
-        color: active ? 'rgba(10,132,255,0.9)' : 'var(--label-secondary)',
+        color: active ? '#000000' : 'var(--label-secondary)',
       }}
     >
       {Children.map(children, child => cloneElement(child as ReactElement<{ isHovered?: ReturnType<typeof useMotionValue<number>> }>, { isHovered }))}
@@ -157,11 +157,9 @@ export default function Dock({
           padding: '0 var(--space-2) var(--space-2)',
           height: panelHeight,
           borderRadius: 'var(--radius-xl)',
-          background: 'var(--glass-regular)',
-          border: '0.5px solid var(--glass-border)',
-          backdropFilter: 'blur(40px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-          boxShadow: 'var(--shadow-lg)',
+          background: 'var(--dock-bg)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
         }}
         role="toolbar"
         aria-label="Application dock"

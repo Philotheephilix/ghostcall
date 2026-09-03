@@ -2,37 +2,57 @@
 
 :root {
   /* ── System Backgrounds ── */
-  --bg-primary:       #000000;
-  --bg-secondary:     #0a0a0a;
-  --bg-tertiary:      #111111;
+  --bg-primary:       #0F0F0F;
+  --bg-secondary:     #141414;
+  --bg-tertiary:      #1A1A1A;
 
   /* ── Glass Materials — vibrancy layers ── */
   --glass-thin:       rgba(255, 255, 255, 0.06);
-  --glass-regular:    rgba(255, 255, 255, 0.10);
+  --glass-regular:    rgba(255, 255, 255, 0.07);
   --glass-thick:      rgba(255, 255, 255, 0.15);
   --glass-chrome:     rgba(255, 255, 255, 0.04);
 
-  --glass-border:     rgba(255, 255, 255, 0.12);
+  --glass-border:     rgba(255, 255, 255, 0.09);
   --glass-border-mid: rgba(255, 255, 255, 0.08);
   --glass-border-sub: rgba(255, 255, 255, 0.05);
 
   /* ── System Labels ── */
   --label-primary:    rgba(255, 255, 255, 1.0);
-  --label-secondary:  rgba(255, 255, 255, 0.6);
-  --label-tertiary:   rgba(255, 255, 255, 0.35);
+  --label-secondary:  rgba(255, 255, 255, 0.55);
+  --label-tertiary:   rgba(255, 255, 255, 0.30);
   --label-quaternary: rgba(255, 255, 255, 0.18);
 
   /* ── System Colors ── */
   --system-green:     #30D158;   /* connected / active */
   --system-red:       #FF453A;   /* end call / error */
-  --system-blue:      #0A84FF;   /* primary action */
+  --system-blue:      #C6F135;   /* primary action — brand green-yellow */
   --system-orange:    #FF9F0A;   /* warning */
   --system-gray:      #636366;   /* disabled */
   --system-gray-2:    #3A3A3C;
   --system-gray-3:    #2C2C2E;
-  --system-gray-4:    #1C1C1E;
+  --system-gray-4:    #1E1E1E;
   --system-gray-5:    #141415;
   --system-gray-6:    #0D0D0E;
+
+  /* ── Accent (brand green-yellow) ── */
+  --accent:           #C6F135;
+  --accent-dim:       rgba(198, 241, 53, 0.15);
+  --accent-glow:      0 8px 32px rgba(198, 241, 53, 0.25);
+  --accent-text:      #000000;
+
+  /* ── Card Surfaces ── */
+  --card-bg:          #1A1A1A;
+  --card-bg-elevated: #222222;
+  --card-border:      1px solid rgba(255, 255, 255, 0.08);
+
+  /* ── Dock ── */
+  --dock-bg:          #1A1A1A;
+  --dock-active-bg:   #C6F135;
+  --dock-active-text: #000000;
+
+  /* ── Segmented Control ── */
+  --seg-active-bg:    #C6F135;
+  --seg-active-text:  #000000;
 
   /* ── Typography — SF Pro metrics ── */
   --font-system: -apple-system, 'SF Pro Text', 'SF Pro Display',
