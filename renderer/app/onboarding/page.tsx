@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Logo from '../../components/Logo'
 import GradientWaves from '../../components/GradientWaves'
 import Carousel from '../../components/Carousel'
-import Dither from '../../components/Dither'
+import Iridescence from '../../components/Iridescence'
 import { loadState, saveState, clearState } from '../../lib/app-state'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import SeedGrid from '../../components/SeedGrid'
@@ -146,21 +146,16 @@ const FEATURE_ITEMS = [
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, width: '100%', maxWidth: 360, position: 'relative' }}>
-      {/* Dither background */}
+      {/* Iridescence background */}
       <div style={{
-        position: 'absolute', inset: '-40px -60px', zIndex: 0,
-        pointerEvents: 'none', opacity: 0.18,
+        position: 'absolute', inset: '-60px -80px', zIndex: 0,
+        pointerEvents: 'none', opacity: 0.45,
       }}>
-        <Dither
-          waveColor={[0.773, 0.945, 0.208]}
-          backgroundColor={[0.04, 0.04, 0.031]}
-          waveSpeed={0.025}
-          waveFrequency={2.2}
-          waveAmplitude={0.32}
-          colorNum={4}
-          pixelSize={3}
-          disableAnimation={false}
-          enableMouseInteraction={false}
+        <Iridescence
+          color={[0.773, 0.945, 0.208]}
+          speed={0.5}
+          amplitude={0.06}
+          mouseReact={false}
         />
       </div>
 

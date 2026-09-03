@@ -7,7 +7,7 @@ import CallHistory from '../../components/CallHistory'
 import PaymentModal from '../../components/PaymentModal'
 import PaymentsPage from '../../components/PaymentsPage'
 import Dock from '../../components/Dock'
-import Dither from '../../components/Dither'
+import Iridescence from '../../components/Iridescence'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import { appendCallLog, markCallPaid, loadState } from '../../lib/app-state'
 
@@ -92,21 +92,17 @@ export default function Home() {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Dither background — full viewport, behind all content */}
+      {/* Iridescence background — full viewport, behind all content */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        opacity: torOk ? 0.28 : 0.12,
-        transition: 'opacity 1.2s ease',
+        opacity: torOk ? 0.55 : 0.22,
+        transition: 'opacity 1.4s ease',
       }}>
-        <Dither
-          waveColor={torOk ? [0.773, 0.945, 0.208] : [0.18, 0.18, 0.16]}
-          backgroundColor={[0.04, 0.04, 0.031]}
-          waveSpeed={0.03}
-          waveFrequency={2.5}
-          waveAmplitude={0.35}
-          colorNum={4}
-          pixelSize={3}
-          enableMouseInteraction={false}
+        <Iridescence
+          color={torOk ? [0.773, 0.945, 0.208] : [0.3, 0.32, 0.28]}
+          speed={0.6}
+          amplitude={0.08}
+          mouseReact={false}
         />
       </div>
 
