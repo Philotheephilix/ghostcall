@@ -83,7 +83,7 @@ function OnboardingInner() {
             width: step === s ? 20 : 6,
             height: 6, borderRadius: 3,
             background: i <= stepIndex
-              ? 'var(--system-blue)'
+              ? 'var(--accent)'
               : 'var(--system-gray-3)',
             transition: 'width 300ms var(--spring), background 300ms',
           }} />
@@ -144,42 +144,75 @@ const FEATURE_ITEMS = [
 // ── Welcome ────────────────────────────────────────────────────────────────
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36, width: '100%', maxWidth: 360, position: 'relative' }}>
-      {/* GradientWaves background */}
-      <div style={{ position: 'absolute', inset: '-200px -100px', zIndex: 0, pointerEvents: 'none' }}>
-        <GradientWaves
-          horizonColor="#000010"
-          waveColor="#001040"
-          crestColor="#0A84FF"
-          speed={0.25}
-          amplitude={1.8}
-          brightness={1.1}
-          opacity={0.45}
-          grain={false}
-          mouseInteraction={false}
-        />
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, width: '100%', maxWidth: 360, position: 'relative' }}>
+      {/* Ambient accent glow */}
+      <div style={{
+        position: 'absolute', top: -80, left: '50%', transform: 'translateX(-50%)',
+        width: 300, height: 200, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 50% 0%, rgba(198,241,53,0.08) 0%, transparent 72%)',
+      }} />
 
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <Logo size={72} glowColor="rgba(10,132,255,0.9)" />
+        <Logo size={64} glowColor="rgba(198,241,53,0.9)" />
       </div>
 
       <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        <h1 style={{ fontSize: 'var(--text-large-title, 34px)', fontWeight: 700, letterSpacing: '-0.8px', lineHeight: 1.05, marginBottom: 10 }}>
-          GhostCall
+        <h1 style={{
+          fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 700,
+          letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 12,
+          color: 'var(--label-primary)',
+        }}>
+          GHOSTCALL
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--label-secondary)', lineHeight: 1.5, maxWidth: 260, margin: '0 auto' }}>
-          Private calls. No IP. No relay. No trace.
+        <p style={{
+          fontFamily: 'var(--font-mono)', fontSize: 11,
+          color: 'var(--label-quaternary)', lineHeight: 1.7,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          maxWidth: 240, margin: '0 auto',
+        }}>
+          No IP &nbsp;·&nbsp; No relay &nbsp;·&nbsp; No trace
         </p>
       </div>
 
-      {/* Feature carousel */}
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <Carousel items={FEATURE_ITEMS} baseWidth={328} autoplay autoplayDelay={2800} loop />
+      {/* Feature list — terminal style */}
+      <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+        {FEATURE_ITEMS.map((item, i) => (
+          <div key={item.id} style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            padding: '10px 0',
+            borderBottom: i < FEATURE_ITEMS.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+          }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: 4,
+              background: 'rgba(198,241,53,0.08)',
+              border: '1px solid rgba(198,241,53,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+              color: 'var(--accent)',
+            }}>
+              {item.icon}
+            </div>
+            <div>
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
+                color: 'var(--label-secondary)', letterSpacing: '0.04em',
+                marginBottom: 2,
+              }}>
+                {item.title}
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-mono)', fontSize: 10,
+                color: 'var(--label-quaternary)', lineHeight: 1.5, letterSpacing: '0.02em',
+              }}>
+                {item.description}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <button className="btn-primary" onClick={onNext} style={{ position: 'relative', zIndex: 1, marginTop: 4 }}>
-        Get started
+      <button className="btn-primary" onClick={onNext} style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+        Initialize
       </button>
     </div>
   )
@@ -253,7 +286,7 @@ function ZkeyWaitingSubFlow({
           Complete the login in your browser, then return here.
         </p>
       </div>
-      <div style={{ width: 48, height: 48, border: '3px solid var(--system-blue)',
+      <div style={{ width: 48, height: 48, border: '3px solid var(--accent)',
         borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <div className="glass-card-sm" style={{ width: '100%', padding: '12px 16px' }}>
         <p style={{ fontSize: 12, color: 'var(--label-secondary)', lineHeight: 1.6 }}>
@@ -651,7 +684,7 @@ function FundStep() {
           <button
             onClick={checkBalance}
             disabled={checking}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--system-blue)', fontSize: 14 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 14 }}
           >
             {checking ? 'Checking…' : balance !== null ? `${balance} STRK` : 'Check'}
           </button>
@@ -676,7 +709,7 @@ function FundStep() {
             href="https://starknet-faucet.vercel.app"
             target="_blank"
             rel="noreferrer"
-            style={{ color: 'var(--system-blue)' }}
+            style={{ color: 'var(--accent)' }}
           >
             Starknet faucet
           </a>.

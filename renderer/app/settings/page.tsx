@@ -5,7 +5,6 @@ import { loadState, saveState, clearState } from '../../lib/app-state'
 import { identityDelete, onIdentityReady } from '../../lib/identity-client'
 import { useTorStatus } from '../../hooks/useTorStatus'
 
-// Shared balance fetcher — Uint256 aware
 const RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? ''
 const STRK = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
 
@@ -24,6 +23,50 @@ async function fetchBalance(addr: string): Promise<string> {
   return (Number(low + (high << 128n)) / 1e18).toFixed(4)
 }
 
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '13px 16px',
+      borderBottom: '1px solid rgba(255,255,255,0.05)',
+    }}>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 11,
+        color: 'var(--label-quaternary)', letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      {children}
+    </div>
+  )
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 9,
+          color: 'var(--label-quaternary)', letterSpacing: '0.14em',
+          textTransform: 'uppercase', fontWeight: 600,
+        }}>
+          {label}
+        </span>
+        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+      </div>
+      <div style={{
+        background: 'var(--card)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 'var(--radius-md)',
+        overflow: 'hidden',
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const torStatus = useTorStatus()
   const [state, setState] = useState<ReturnType<typeof loadState> | null>(null)
@@ -32,13 +75,6 @@ export default function Settings() {
   useEffect(() => {
     const s = loadState()
     if (s.onboardingDone) { setState(s); return }
-    // onboardingDone can be false even with a working identity — the .env
-    // silent-path (identity:ready source 'env') lands the user on /home without
-    // ever running the onboarding UI that sets the flag, and it writes no
-    // identity.enc so identityExists() is false too. Gate on the identity:ready
-    // event instead: a non-empty source (env | seed | zkey) means an identity is
-    // live, so repair the flag and render Settings rather than bouncing to
-    // onboarding. Only redirect when there is genuinely no identity.
     const cleanup = onIdentityReady((data) => {
       if (data.source) { setState(saveState({ onboardingDone: true })) }
       else { window.location.replace('/onboarding') }
@@ -57,11 +93,7 @@ export default function Settings() {
 
   async function resetOnboarding() {
     if (!confirm('This will delete your saved identity. You will need to re-register on Starknet.')) return
-    // Delete the encrypted identity file (identity.enc) as well as local app
-    // state — otherwise onboarding sees the old wallet via identityExists() and
-    // skips straight to "Wallet created" without creating a new one. Mirrors the
-    // decrypt-error recovery path in onboarding.
-    try { await identityDelete() } catch { /* file may already be gone */ }
+    try { await identityDelete() } catch {}
     clearState()
     window.location.replace('/onboarding')
   }
@@ -70,100 +102,143 @@ export default function Settings() {
 
   return (
     <main style={{
-      minHeight: '100vh', background: 'var(--bg-primary)',
-      paddingTop: 60, padding: '60px 20px 40px', maxWidth: 420, margin: '0 auto',
+      minHeight: '100vh', background: 'var(--bg)',
+      padding: '0 20px 48px',
+      maxWidth: 420, margin: '0 auto',
     }}>
-      {/* Back */}
-      <button
-        onClick={() => window.location.href = '/home'}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--system-blue)', fontSize: 15, marginBottom: 24,
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: 0,
-        }}
-      >
-        ‹ Back
-      </button>
-
-      <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 32 }}>Settings</h1>
-
-      {/* Identity */}
-      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>
-        Identity
-      </p>
-      <div className="glass-card" style={{ marginBottom: 24, padding: 0, overflow: 'hidden' }}>
-        <div className="list-row" style={{ padding: '14px 20px' }}>
-          <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Handle</span>
-          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--system-green)' }}>@{state?.handle || '—'}</span>
-        </div>
-        <div className="list-row" style={{ padding: '14px 20px' }}>
-          <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Registered</span>
-          <span style={{ fontSize: 14, color: state?.registered ? 'var(--system-green)' : 'var(--label-tertiary)' }}>
-            {state?.registered ? '✓ On Starknet Sepolia' : 'Not yet'}
-          </span>
-        </div>
-        {state?.registrationTx && (
-          <div className="list-row" style={{ padding: '14px 20px' }}>
-            <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Reg. TX</span>
-            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--label-tertiary)' }}>
-              {state?.registrationTx.slice(0, 10)}…{state?.registrationTx.slice(-6)}
-            </span>
-          </div>
-        )}
+      {/* Header */}
+      <div style={{
+        paddingTop: 48, paddingBottom: 24,
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        <button
+          onClick={() => window.location.href = '/home'}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--label-secondary)', fontSize: 18,
+            padding: '4px 8px 4px 0', lineHeight: 1,
+          }}
+        >
+          ‹
+        </button>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 11,
+          color: 'var(--label-quaternary)', letterSpacing: '0.14em',
+          textTransform: 'uppercase', fontWeight: 600,
+        }}>
+          Settings
+        </span>
       </div>
 
-      {/* Account */}
-      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>
-        Account
-      </p>
-      <div className="glass-card" style={{ marginBottom: 24, padding: 0, overflow: 'hidden' }}>
-        <div className="list-row" style={{ padding: '14px 20px', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-          <span style={{ fontSize: 13, color: 'var(--label-tertiary)' }}>Address (Sepolia)</span>
-          <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--label-secondary)', wordBreak: 'break-all' }}>
+      {/* Identity section */}
+      <Section label="Identity">
+        <Row label="Handle">
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600,
+            color: 'var(--accent)',
+          }}>
+            {state?.handle ? `@${state.handle}` : '—'}
+          </span>
+        </Row>
+        <Row label="Starknet">
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            color: state?.registered ? 'var(--system-green)' : 'var(--label-quaternary)',
+            letterSpacing: '0.04em',
+          }}>
+            {state?.registered ? 'REGISTERED' : 'NOT REGISTERED'}
+          </span>
+        </Row>
+        {state?.registrationTx && (
+          <Row label="Reg TX">
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 10,
+              color: 'var(--label-tertiary)', letterSpacing: '0.02em',
+            }}>
+              {state.registrationTx.slice(0, 10)}…{state.registrationTx.slice(-6)}
+            </span>
+          </Row>
+        )}
+        <div style={{ padding: '12px 16px', borderBottom: 'none' }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9,
+            color: 'var(--label-quaternary)', letterSpacing: '0.06em',
+            textTransform: 'uppercase', display: 'block', marginBottom: 6,
+          }}>
+            Address (Sepolia)
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: 'var(--label-tertiary)', wordBreak: 'break-all', lineHeight: 1.5,
+          }}>
             {accountAddr}
           </span>
         </div>
-        <div className="list-row" style={{ padding: '14px 20px' }}>
-          <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>STRK balance</span>
+      </Section>
+
+      {/* Account section */}
+      <Section label="Account">
+        <Row label="STRK Balance">
           <button
             onClick={checkBalance}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--system-blue)', fontSize: 15 }}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font-mono)', fontSize: 12,
+              color: balance !== null ? 'var(--accent)' : 'var(--label-secondary)',
+              letterSpacing: '0.04em',
+            }}
           >
-            {balance !== null ? `${balance} STRK` : 'Check'}
+            {balance !== null ? `${balance} STRK` : 'Check →'}
           </button>
-        </div>
-      </div>
+        </Row>
+      </Section>
 
-      {/* Network */}
-      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-tertiary)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>
-        Network
-      </p>
-      <div className="glass-card" style={{ marginBottom: 32, padding: 0, overflow: 'hidden' }}>
-        <div className="list-row" style={{ padding: '14px 20px' }}>
-          <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Tor</span>
-          <div className={`status-pill ${torOk ? 'status-pill--connected' : 'status-pill--error'}`} style={{ padding: '2px 8px' }}>
+      {/* Network section */}
+      <Section label="Network">
+        <Row label="Tor">
+          <div className={`status-pill ${torOk ? 'status-pill--connected' : 'status-pill--error'}`}>
             <span className="dot" />
-            <span style={{ fontSize: 11 }}>{torOk ? 'Connected' : 'Unavailable'}</span>
+            <span>{torOk ? 'Connected' : 'Unavailable'}</span>
           </div>
-        </div>
-        <div className="list-row" style={{ padding: '14px 20px' }}>
-          <span style={{ fontSize: 15, color: 'var(--label-secondary)' }}>Starknet</span>
-          <span style={{ fontSize: 13, color: 'var(--label-tertiary)' }}>Sepolia testnet</span>
-        </div>
-      </div>
+        </Row>
+        <Row label="Starknet">
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: 'var(--label-quaternary)', letterSpacing: '0.04em',
+          }}>
+            Sepolia
+          </span>
+        </Row>
+      </Section>
 
-      {/* Danger zone */}
-      <button
-        onClick={resetOnboarding}
-        className="btn-secondary"
-        style={{ color: 'var(--system-red)', borderColor: 'rgba(255,69,58,0.2)' }}
-      >
-        Reset identity
-      </button>
-      <p style={{ fontSize: 12, color: 'var(--label-quaternary)', textAlign: 'center', marginTop: 10 }}>
-        Deletes saved keys. You'll need to re-register on-chain.
-      </p>
+      {/* Danger */}
+      <div style={{ marginTop: 8 }}>
+        <button
+          onClick={resetOnboarding}
+          style={{
+            width: '100%', padding: '12px 16px',
+            background: 'rgba(255,59,48,0.06)',
+            border: '1px solid rgba(255,59,48,0.18)',
+            borderRadius: 'var(--radius-md)',
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            fontWeight: 600, letterSpacing: '0.08em',
+            textTransform: 'uppercase', color: 'var(--system-red)',
+            cursor: 'pointer',
+            transition: 'background 120ms',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.10)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,59,48,0.06)')}
+        >
+          Reset identity
+        </button>
+        <p style={{
+          fontFamily: 'var(--font-mono)', fontSize: 9,
+          color: 'var(--label-quaternary)', textAlign: 'center',
+          marginTop: 8, letterSpacing: '0.04em',
+        }}>
+          Deletes saved keys. Re-registration required.
+        </p>
+      </div>
     </main>
   )
 }

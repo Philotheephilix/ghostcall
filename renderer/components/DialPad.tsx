@@ -21,9 +21,6 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
 
   const gc = () => (window as any).ghostcall
 
-  // Copy via Electron's native clipboard — navigator.clipboard is unavailable
-  // in the packaged file:// (non-secure) context. Fall back to the web API only
-  // when the bridge is absent (e.g. tests / browser dev).
   function copyAddr(text?: string) {
     const value = text ?? ''
     if (!value) return
@@ -31,15 +28,10 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
     if (bridge?.copyToClipboard) {
       bridge.copyToClipboard(value)
     } else {
-      navigator.clipboard?.writeText(value).catch(() => { /* ignore */ })
+      navigator.clipboard?.writeText(value).catch(() => {})
     }
   }
 
-  // Call by handle: resolve the handle to its stealth + Nostr identity on-chain,
-  // go online (opens our onion + inbound Noise responder), then publish a
-  // gift-wrapped Nostr offer carrying OUR onion. The callee receives it and dials
-  // back — so the caller waits here as the responder. We land on /call and the
-  // 'call:connected' push fires once the callee's inbound handshake completes.
   async function callByHandle() {
     const trimmedHandle = handle.trim()
     if (!trimmedHandle || isCalling) return
@@ -50,8 +42,6 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
       if (!meta?.nostrPubkey) {
         throw new Error(`Handle "${trimmedHandle}" is not registered`)
       }
-      // Ensure we're online so the offer can advertise our onion. goOnline is
-      // idempotent (returns the existing onion if already online).
       let myOnion = onionAddr
       if (!myOnion) {
         const result = await gc().goOnline()
@@ -109,10 +99,10 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
       <div style={{ padding: '16px 16px 0' }}>
         <div className="seg-control">
           <button className={`seg-btn${tab === 'handle' ? ' active' : ''}`} onClick={() => setTab('handle')}>
-            By Handle
+            Handle
           </button>
           <button className={`seg-btn${tab === 'direct' ? ' active' : ''}`} onClick={() => setTab('direct')}>
-            Direct
+            Onion
           </button>
         </div>
       </div>
@@ -121,17 +111,24 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
       <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {tab === 'handle' ? (
           <>
-            <input
-              className="input-glass"
-              type="text"
-              placeholder="Handle"
-              value={handle}
-              onChange={e => setHandle(e.target.value)}
-              disabled={isCalling || !torReady}
-              onKeyDown={e => e.key === 'Enter' && callByHandle()}
-              autoFocus
-              style={{ fontSize: 17 }}
-            />
+            <div style={{ position: 'relative' }}>
+              <span style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                fontFamily: 'var(--font-mono)', fontSize: 16, color: 'var(--accent)',
+                pointerEvents: 'none', lineHeight: 1,
+              }}>@</span>
+              <input
+                className="input-glass"
+                type="text"
+                placeholder="handle"
+                value={handle}
+                onChange={e => setHandle(e.target.value)}
+                disabled={isCalling || !torReady}
+                onKeyDown={e => e.key === 'Enter' && callByHandle()}
+                autoFocus
+                style={{ fontSize: 16, paddingLeft: 26 }}
+              />
+            </div>
             <button
               className="btn-primary"
               onClick={callByHandle}
@@ -151,7 +148,7 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
               disabled={isCalling || !torReady}
               onKeyDown={e => e.key === 'Enter' && callDirect()}
               autoFocus
-              style={{ fontSize: 15, fontFamily: 'var(--font-mono)' }}
+              style={{ fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}
             />
             <button
               className="btn-primary"
@@ -163,7 +160,11 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
             {onionAddr && (
               <button
                 className="btn-text"
-                style={{ fontSize: 13, justifyContent: 'flex-start', paddingLeft: 0, color: 'var(--label-secondary)' }}
+                style={{
+                  fontSize: 10, justifyContent: 'flex-start', paddingLeft: 0,
+                  color: 'var(--label-quaternary)', letterSpacing: '0.06em',
+                  textTransform: 'uppercase', fontFamily: 'var(--font-mono)',
+                }}
                 onClick={() => copyAddr(onionAddr)}
               >
                 Copy my address
@@ -184,34 +185,49 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
           width: '100%', padding: '14px 16px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'transparent', border: 'none', cursor: isOnline ? 'default' : 'pointer',
-          color: isOnline ? 'var(--system-green)' : 'var(--label-secondary)',
-          fontSize: 15, fontFamily: 'var(--font-system)',
           transition: 'background 120ms',
         }}
         className={!isOnline ? 'hover:bg-glass-thin' : ''}
       >
-        <span>{isOnline ? 'Online' : isGoingOnline ? 'Starting…' : 'Go online'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isOnline && (
+            <div style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'var(--system-green)',
+              boxShadow: '0 0 8px rgba(48,209,88,0.7)',
+              animation: 'pulse-dot 2.5s ease-in-out infinite',
+            }} />
+          )}
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: isOnline ? 'var(--system-green)' : 'var(--label-secondary)',
+          }}>
+            {isOnline ? 'Online' : isGoingOnline ? 'Starting…' : 'Go online'}
+          </span>
+        </div>
         {isOnline
           ? <span
-              onClick={e => {
-                e.stopPropagation()
-                copyAddr(onionAddr)
-              }}
+              onClick={e => { e.stopPropagation(); copyAddr(onionAddr) }}
               title="Click to copy"
-              style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--system-green)', opacity: 0.7, cursor: 'copy' }}
+              style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)',
+                color: 'var(--system-green)', opacity: 0.5,
+                cursor: 'copy', letterSpacing: '0.04em',
+              }}
             >
-              {onionAddr?.slice(0, 12)}…
+              {onionAddr?.slice(0, 14)}…
             </span>
-          : <span style={{ fontSize: 19, color: 'var(--label-quaternary)' }}>›</span>
+          : <span style={{ fontSize: 14, color: 'var(--label-quaternary)', fontFamily: 'var(--font-mono)' }}>›</span>
         }
       </button>
 
       {statusMsg && (
         <p style={{
-          margin: '0 16px 12px', fontSize: 12, color: 'var(--system-red)',
-          fontFamily: 'var(--font-mono)', wordBreak: 'break-all',
+          margin: '0 16px 12px', fontSize: 10, color: 'var(--system-red)',
+          fontFamily: 'var(--font-mono)', wordBreak: 'break-all', letterSpacing: '0.02em',
         }}>
-          {statusMsg}
+          ERR: {statusMsg}
         </p>
       )}
     </div>

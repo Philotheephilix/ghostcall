@@ -1,98 +1,83 @@
-/* Apple HIG — glass materials, system typography, vibrancy */
-
 :root {
-  /* ── System Backgrounds ── */
-  --bg-primary:       #0F0F0F;
-  --bg-secondary:     #141414;
-  --bg-tertiary:      #1A1A1A;
+  /* ── Surfaces ── */
+  --bg:             #0A0A08;
+  --bg-primary:     #0A0A08;
+  --bg-secondary:   #0F0F0D;
+  --bg-tertiary:    #111210;
+  --card:           #111210;
+  --card-raised:    #181816;
+  --card-bg:        #111210;
+  --card-bg-elevated: #181816;
 
-  /* ── Glass Materials — vibrancy layers ── */
-  --glass-thin:       rgba(255, 255, 255, 0.06);
-  --glass-regular:    rgba(255, 255, 255, 0.07);
-  --glass-thick:      rgba(255, 255, 255, 0.15);
-  --glass-chrome:     rgba(255, 255, 255, 0.04);
+  /* ── Glass (legacy compat) ── */
+  --glass-thin:       rgba(255,255,255,0.04);
+  --glass-regular:    rgba(255,255,255,0.06);
+  --glass-thick:      rgba(255,255,255,0.10);
+  --glass-chrome:     rgba(255,255,255,0.03);
+  --glass-border:     rgba(255,255,255,0.08);
+  --glass-border-mid: rgba(255,255,255,0.06);
+  --glass-border-sub: rgba(255,255,255,0.04);
 
-  --glass-border:     rgba(255, 255, 255, 0.09);
-  --glass-border-mid: rgba(255, 255, 255, 0.08);
-  --glass-border-sub: rgba(255, 255, 255, 0.05);
-
-  /* ── System Labels ── */
-  --label-primary:    rgba(255, 255, 255, 1.0);
-  --label-secondary:  rgba(255, 255, 255, 0.55);
-  --label-tertiary:   rgba(255, 255, 255, 0.30);
-  --label-quaternary: rgba(255, 255, 255, 0.18);
-
-  /* ── System Colors ── */
-  --system-green:     #30D158;   /* connected / active */
-  --system-red:       #FF453A;   /* end call / error */
-  --system-blue:      #C6F135;   /* primary action — brand green-yellow */
-  --system-orange:    #FF9F0A;   /* warning */
-  --system-gray:      #636366;   /* disabled */
-  --system-gray-2:    #3A3A3C;
-  --system-gray-3:    #2C2C2E;
-  --system-gray-4:    #1E1E1E;
-  --system-gray-5:    #141415;
-  --system-gray-6:    #0D0D0E;
-
-  /* ── Accent (brand green-yellow) ── */
+  /* ── Signal green — the ONE alive color ── */
   --accent:           #C6F135;
-  --accent-dim:       rgba(198, 241, 53, 0.15);
-  --accent-glow:      0 8px 32px rgba(198, 241, 53, 0.25);
-  --accent-text:      #000000;
+  --accent-dim:       rgba(198,241,53,0.10);
+  --accent-glow:      0 0 24px rgba(198,241,53,0.28);
+  --accent-text:      #080800;
 
-  /* ── Card Surfaces ── */
-  --card-bg:          #1A1A1A;
-  --card-bg-elevated: #222222;
-  --card-border:      1px solid rgba(255, 255, 255, 0.08);
-
-  /* ── Dock ── */
-  --dock-bg:          #1A1A1A;
+  /* ── Dock/seg tokens ── */
+  --dock-bg:          #111210;
   --dock-active-bg:   #C6F135;
-  --dock-active-text: #000000;
-
-  /* ── Segmented Control ── */
+  --dock-active-text: #080800;
   --seg-active-bg:    #C6F135;
-  --seg-active-text:  #000000;
+  --seg-active-text:  #080800;
 
-  /* ── Typography — SF Pro metrics ── */
-  --font-system: -apple-system, 'SF Pro Text', 'SF Pro Display',
-                 'Helvetica Neue', system-ui, sans-serif;
-  --font-mono:   'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  /* ── Labels ── */
+  --label-primary:    rgba(255,255,255,0.92);
+  --label-secondary:  rgba(255,255,255,0.50);
+  --label-tertiary:   rgba(255,255,255,0.28);
+  --label-quaternary: rgba(255,255,255,0.14);
 
-  /* Large Title: 34px 700 */
-  /* Title 1: 28px 700 */
-  /* Title 2: 22px 700 */
-  /* Title 3: 20px 600 */
-  /* Headline: 17px 600 */
-  /* Body: 17px 400 */
-  /* Callout: 16px 400 */
-  /* Subheadline: 15px 400 */
-  /* Footnote: 13px 400 */
-  /* Caption 1: 12px 400 */
-  /* Caption 2: 11px 400 */
+  /* ── System states ── */
+  --system-green:  #30D158;
+  --system-red:    #FF3B30;
+  --system-blue:   #C6F135;   /* remapped — accent is the CTA */
+  --system-orange: #FF9F0A;
+  --system-gray:   #636360;
+  --system-gray-2: #3A3A38;
+  --system-gray-3: #2C2C2A;
+  --system-gray-4: #1E1E1C;
+  --system-gray-5: #141412;
+  --system-gray-6: #0D0D0B;
 
+  /* ── Typography ── */
+  /* Monospace is PRIMARY — labels, handles, metadata, inputs */
+  --font-mono:    'JetBrains Mono', 'SF Mono', 'Menlo', 'Fira Code', monospace;
+  /* System font for body prose only */
+  --font-system:  -apple-system, 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+
+  /* Type scale */
   --text-large-title: 34px;
   --text-title1:      28px;
   --text-title2:      22px;
   --text-title3:      20px;
   --text-headline:    17px;
-  --text-body:        17px;
-  --text-callout:     16px;
-  --text-subhead:     15px;
-  --text-footnote:    13px;
-  --text-caption1:    12px;
-  --text-caption2:    11px;
+  --text-body:        16px;
+  --text-callout:     15px;
+  --text-subhead:     14px;
+  --text-footnote:    12px;
+  --text-caption1:    11px;
+  --text-caption2:    10px;
 
-  /* ── Corner Radius ── */
-  --radius-xs:    4px;
-  --radius-sm:    8px;
-  --radius-md:   12px;
-  --radius-lg:   16px;
-  --radius-xl:   20px;
-  --radius-2xl:  24px;
+  /* ── Radius — tighter than before, more terminal ── */
+  --radius-xs:    3px;
+  --radius-sm:    6px;
+  --radius-md:    8px;
+  --radius-lg:   12px;
+  --radius-xl:   14px;
+  --radius-2xl:  18px;
   --radius-full: 9999px;
 
-  /* ── Spacing (4pt grid) ── */
+  /* ── Spacing ── */
   --space-1:  4px;
   --space-2:  8px;
   --space-3: 12px;
@@ -105,13 +90,22 @@
   --space-16: 64px;
 
   /* ── Motion ── */
-  --spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0.05, 0.35, 0.95);
 
-  /* ── Shadows (elevation) ── */
-  --shadow-sm:  0 1px 2px rgba(0,0,0,0.4),  0 0 0 0.5px rgba(255,255,255,0.05);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.5),  0 0 0 0.5px rgba(255,255,255,0.07);
-  --shadow-lg:  0 8px 32px rgba(0,0,0,0.6),  0 0 0 0.5px rgba(255,255,255,0.08);
-  --shadow-xl:  0 16px 48px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.09);
+  /* ── Elevation ── */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.6);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.7);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.8);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.85);
+
+  /* ── Scanline ── */
+  --scanline: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.18) 2px,
+    rgba(0,0,0,0.18) 4px
+  );
 }

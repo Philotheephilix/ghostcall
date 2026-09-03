@@ -8,7 +8,7 @@ import PaymentModal from '../../components/PaymentModal'
 import PaymentsPage from '../../components/PaymentsPage'
 import Dock from '../../components/Dock'
 import { useTorStatus } from '../../hooks/useTorStatus'
-import { appendCallLog, markCallPaid } from '../../lib/app-state'
+import { appendCallLog, markCallPaid, loadState } from '../../lib/app-state'
 
 export default function Home() {
   const torStatus = useTorStatus()
@@ -18,19 +18,15 @@ export default function Home() {
   const [pendingPayment, setPendingPayment] = useState<{ callId: string; peer: string } | null>(null)
   const [historyKey, setHistoryKey] = useState(0)
   const [activeTab, setActiveTab] = useState<'dial' | 'payments'>('dial')
-  // Offer callIds we've already acted on — a relay may redeliver the same
-  // kind-1059 event, and we must not dial back twice.
   const seenOffers = useRef<Set<string>>(new Set())
+  const state = loadState()
 
   useEffect(() => {
     const gc = (window as any).ghostcall
     if (!gc) return
-    // Recover a 'call:connected' push that may have fired before this page
-    // mounted (e.g. inbound call landing during startup) — the push is
-    // fire-and-forget and unbuffered, so pull the current state once on mount.
     gc.getCallState?.().then((s: { direction: string } | null) => {
       if (s) window.location.href = '/call'
-    }).catch(() => { /* no active call */ })
+    }).catch(() => {})
     const c1 = gc.onCallConnected?.(() => { window.location.href = '/call' })
     const c2 = gc.onCallError?.((err: { message: string }) => setStatusMsg(err.message))
     const c3 = gc.onCallEnded?.((info: { callId: string; peer: string; duration: number }) => {
@@ -40,39 +36,21 @@ export default function Home() {
         setPendingPayment({ callId: info.callId, peer: info.peer })
       }
     })
-    // Incoming call-by-handle offer: the caller published a gift-wrapped Nostr
-    // event carrying their onion. Decrypt it, then dial back (roles inverted —
-    // the caller is listening as responder). Auto-answer: there is no ring UI yet.
     const c4 = gc.onIncomingSignal?.(async (raw: string) => {
-      // Outer catch: silently drop events that are malformed or not addressed to
-      // us (bad crypto, wrong key, unparseable JSON). These are expected noise.
       let payload: { onionAddr: string; callId: string } | null = null
-      try {
-        payload = await gc.parseCallOffer?.(raw)
-      } catch { return }
+      try { payload = await gc.parseCallOffer?.(raw) } catch { return }
       if (!payload?.onionAddr || !payload.callId) return
-
-      // Claim the callId synchronously (before any further await) so two
-      // rapid redeliveries of the same event can't both pass this guard and
-      // dial back twice. Cap the set so it can't grow unbounded across
-      // re-subscribes (each goOnline replays relay history).
       if (seenOffers.current.has(payload.callId)) return
       seenOffers.current.add(payload.callId)
       if (seenOffers.current.size > 500) {
         seenOffers.current.delete(seenOffers.current.values().next().value!)
       }
-
-      // Ignore offers that arrive while we're already on a call.
       const active = await gc.getCallState?.().catch(() => null)
       if (active) return
-
       try {
         await gc.initiateCall(payload.onionAddr)
         window.location.href = '/call'
       } catch (e) {
-        // Dial-back failed (Tor circuit error, Noise handshake timeout, etc.)
-        // Release the claim so a relay re-delivery can retry, and surface the
-        // error — this is a real transport failure, not a malformed event.
         seenOffers.current.delete(payload.callId)
         setStatusMsg(`Incoming call failed: ${(e as Error).message}`)
       }
@@ -88,16 +66,11 @@ export default function Home() {
       setOnionAddr(addr)
       setIsOnline(true)
       setStatusMsg('')
-      // Subscribe to incoming call offers addressed to our full Nostr pubkey so
-      // others can reach us by handle while we're online. If identity hasn't
-      // loaded yet, getMyNostrPubkey returns '' — surface that instead of
-      // silently leaving the user online-but-unreachable-by-handle.
       const myPub = await gc?.getMyNostrPubkey?.().catch(() => '')
       if (myPub) {
-        // Relay errors are non-fatal — direct onion calls still work.
-        await gc?.subscribeSignals?.(myPub).catch(() => { /* signaling optional */ })
+        await gc?.subscribeSignals?.(myPub).catch(() => {})
       } else {
-        setStatusMsg('Online, but not yet reachable by handle — identity still loading. Try Go online again in a moment.')
+        setStatusMsg('Online — not yet reachable by handle. Try again in a moment.')
       }
     } catch (e) {
       setStatusMsg((e as Error).message)
@@ -105,57 +78,168 @@ export default function Home() {
   }
 
   const torOk = torStatus?.running === true
+  const handle = state.handle || null
 
   return (
-    <main className="page" style={{ gap: 0, paddingBottom: 88 }}>
+    <main style={{
+      minHeight: '100vh',
+      background: 'var(--bg)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      paddingBottom: 96,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Ambient glow — only when Tor connected */}
       {torOk && (
         <div style={{
-          position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-          width: 320, height: 220,
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(48,209,88,0.07) 0%, transparent 70%)',
+          position: 'absolute',
+          top: -60, left: '50%', transform: 'translateX(-50%)',
+          width: 360, height: 240,
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(198,241,53,0.06) 0%, transparent 72%)',
           pointerEvents: 'none',
         }} />
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginBottom: 44 }}>
-        <Logo size={56} glowColor={torOk ? 'rgba(48,209,88,0.85)' : 'rgba(255,255,255,0.15)'} />
-        <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, lineHeight: 1.1 }}>
-            GhostCall
-          </h1>
+      {/* Header strip */}
+      <div style={{
+        width: '100%',
+        maxWidth: 420,
+        padding: '20px 20px 0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        {/* Identity badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Logo size={32} glowColor={torOk ? 'rgba(198,241,53,0.9)' : 'rgba(255,255,255,0.15)'} />
+          <div>
+            {handle ? (
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--accent)',
+                letterSpacing: '0.02em',
+              }}>
+                @{handle}
+              </span>
+            ) : (
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                color: 'var(--label-quaternary)',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+              }}>
+                no handle
+              </span>
+            )}
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              color: 'var(--label-quaternary)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginTop: 1,
+            }}>
+              GHOSTCALL
+            </div>
+          </div>
         </div>
 
+        {/* Network status */}
         <div className={`status-pill ${torOk ? 'status-pill--connected' : torStatus === null ? 'status-pill--offline' : 'status-pill--error'}`}>
           <span className="dot" />
           <span>
             {torOk
-              ? isOnline ? onionAddr.slice(0, 14) + '…' : 'Private'
-              : torStatus === null ? 'Connecting…' : 'Tor unavailable'}
+              ? isOnline ? 'ONLINE' : 'TOR OK'
+              : torStatus === null ? 'INIT...' : 'TOR ERR'}
           </span>
         </div>
       </div>
 
-      {activeTab === 'dial' && (
-        <div className="glass-card" style={{ width: '100%', maxWidth: 360, padding: 0, overflow: 'hidden' }}>
-          <DialPad
-            onionAddr={onionAddr}
-            isOnline={isOnline}
-            torReady={torOk}
-            onGoOnline={goOnline}
-          />
-        </div>
-      )}
+      {/* Main content */}
+      <div style={{ width: '100%', maxWidth: 420, padding: '28px 20px 0', flex: 1 }}>
 
-      {statusMsg && (
-        <p style={{
-          marginTop: 14, fontSize: 12, color: 'var(--system-red)',
-          fontFamily: 'var(--font-mono)', textAlign: 'center', maxWidth: 320,
-        }}>
-          {statusMsg}
-        </p>
-      )}
+        {activeTab === 'dial' && (
+          <>
+            {/* Onion address display when online */}
+            {isOnline && onionAddr && (
+              <div style={{
+                marginBottom: 16,
+                padding: '10px 14px',
+                background: 'rgba(198,241,53,0.05)',
+                border: '1px solid rgba(198,241,53,0.15)',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}>
+                <div style={{
+                  width: 5, height: 5, borderRadius: '50%',
+                  background: 'var(--accent)',
+                  boxShadow: '0 0 8px rgba(198,241,53,0.7)',
+                  flexShrink: 0,
+                  animation: 'pulse-dot 2s ease-in-out infinite',
+                }} />
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  color: 'var(--accent)',
+                  letterSpacing: '0.04em',
+                  wordBreak: 'break-all',
+                  lineHeight: 1.4,
+                }}>
+                  {onionAddr.slice(0, 28)}…
+                </span>
+              </div>
+            )}
 
-      {activeTab === 'payments' && <PaymentsPage />}
+            <div className="glass-card" style={{ width: '100%', padding: 0, overflow: 'hidden' }}>
+              <DialPad
+                onionAddr={onionAddr}
+                isOnline={isOnline}
+                torReady={torOk}
+                onGoOnline={goOnline}
+              />
+            </div>
+
+            {statusMsg && (
+              <p style={{
+                marginTop: 12, fontSize: 11, color: 'var(--system-red)',
+                fontFamily: 'var(--font-mono)', textAlign: 'center',
+                letterSpacing: '0.02em', wordBreak: 'break-all',
+              }}>
+                ERR: {statusMsg}
+              </p>
+            )}
+
+            {/* Call history */}
+            <div style={{ marginTop: 24 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+              }}>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: 'var(--label-quaternary)',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                }}>
+                  CALL LOG
+                </span>
+                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+              </div>
+              <CallHistory key={historyKey} />
+            </div>
+          </>
+        )}
+
+        {activeTab === 'payments' && <PaymentsPage />}
+      </div>
 
       {pendingPayment && (
         <PaymentModal
@@ -173,7 +257,7 @@ export default function Home() {
         items={[
           {
             icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6.53 6.53l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
               </svg>
             ),
@@ -183,7 +267,7 @@ export default function Home() {
           },
           {
             icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="5" width="20" height="14" rx="2"/>
                 <path d="M2 10h20"/>
                 <path d="M7 15h.01M11 15h2"/>
@@ -195,7 +279,7 @@ export default function Home() {
           },
           {
             icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
               </svg>
