@@ -17,6 +17,7 @@ if (!process.env.STARKNET_RPC_URL) {
 }
 import { torManager } from './tor-manager'
 import { registerCallIpcHandlers } from './call-orchestrator'
+import { registerFileIpcHandlers } from './file-bridge'
 import { runIdentityStartupSequence, registerIdentityIpcHandlers, onAccountReady, handleZkeyCallback } from './identity-manager'
 import type { Account } from 'starknet'
 
@@ -207,6 +208,9 @@ app.whenReady().then(async () => {
       sessionState.callId = null
     },
   })
+
+  // Register file transfer IPC handlers
+  registerFileIpcHandlers(win)
 
   // Register identity IPC handlers and run startup sequence on load
   registerIdentityIpcHandlers(win)

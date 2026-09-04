@@ -49,26 +49,29 @@ jest.mock('starknet', () => {
     waitForTransaction: mockWaitForTransaction,
   }))
 
-  const mockAccount = jest.fn().mockImplementation((_provider: unknown, _addr: string, _key: string) => ({
+  const mockAccount = jest.fn().mockImplementation(() => ({
     waitForTransaction: mockWaitForTransaction,
+    execute: jest.fn(async (call: { contractAddress: string; entrypoint: string; calldata: unknown[] }) => {
+      // Route tx hash back by entrypoint so tests can distinguish register vs commit
+      if (call.entrypoint === 'register') return { transaction_hash: '0xREGISTER_TX' }
+      if (call.entrypoint === 'commit_call') return { transaction_hash: '0xCOMMIT_TX' }
+      return { transaction_hash: '0xTX' }
+    }),
+    getNonce: jest.fn(async () => '0x0'),
   }))
 
   const mockContractInstance = {
-    register: jest.fn(async (...args: unknown[]) => {
-      lastRegisterArgs = args
-      return { transaction_hash: '0xREGISTER_TX' }
+    populate: jest.fn((method: string, args: unknown[]) => {
+      if (method === 'register') lastRegisterArgs = args
+      if (method === 'commit_call') lastCommitCallArgs = args
+      return { contractAddress: '0xADDR', entrypoint: method, calldata: args }
     }),
     get_stealth_meta: jest.fn(async (...args: unknown[]) => {
       lastGetStealthMetaArgs = args
       return { 0: BigInt('0x1111'), 1: BigInt('0x2222'), 2: BigInt('0x3333'), 3: BigInt('0x4444'), 4: BigInt('0x' + 'aa'.repeat(31)), 5: BigInt('0xbb') }
     }),
-    commit_call: jest.fn(async (...args: unknown[]) => {
-      lastCommitCallArgs = args
-      return { transaction_hash: '0xCOMMIT_TX' }
-    }),
     is_committed: jest.fn(async () => BigInt(1)),
     is_registered: jest.fn(async () => false),
-    // starknet.js v7 generic call() used with blockIdentifier: 'latest'
     call: jest.fn(async (method: string, args: unknown[]) => {
       if (method === 'get_stealth_meta') {
         lastGetStealthMetaArgs = args

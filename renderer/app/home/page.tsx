@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Logo from '../../components/Logo'
 import DialPad from '../../components/DialPad'
 import CallHistory from '../../components/CallHistory'
 import PaymentModal from '../../components/PaymentModal'
 import PaymentsPage from '../../components/PaymentsPage'
+import FileTransferPage from '../../components/FileTransferPage'
+import FileTransferModal, { type IncomingFile } from '../../components/FileTransferModal'
 import Dock from '../../components/Dock'
 import LineWaves from '../../components/LineWaves'
 import { useTorStatus } from '../../hooks/useTorStatus'
@@ -18,9 +20,10 @@ export default function Home() {
   const [statusMsg, setStatusMsg] = useState('')
   const [pendingPayment, setPendingPayment] = useState<{ callId: string; peer: string } | null>(null)
   const [historyKey, setHistoryKey] = useState(0)
-  const [activeTab, setActiveTab] = useState<'dial' | 'payments'>('dial')
+  const [activeTab, setActiveTab] = useState<'dial' | 'payments' | 'files'>('dial')
+  const [incomingFile, setIncomingFile] = useState<IncomingFile | null>(null)
   const seenOffers = useRef<Set<string>>(new Set())
-  const state = loadState()
+  const state = useMemo(() => loadState(), [])
 
   useEffect(() => {
     const gc = (window as any).ghostcall
@@ -37,8 +40,11 @@ export default function Home() {
         setPendingPayment({ callId: info.callId, peer: info.peer })
       }
     })
-    const c4 = gc.onIncomingSignal?.(async (raw: string) => {
-      let payload: { onionAddr: string; callId: string } | null = null
+    const c4 = gc.onIncomingFile?.((data: IncomingFile) => {
+      setIncomingFile(data)
+    })
+    const c5 = gc.onIncomingSignal?.(async (raw: string) => {
+      let payload: { onionAddr: string; callId: string; type?: string; fileName?: string; fileSize?: number } | null = null
       try { payload = await gc.parseCallOffer?.(raw) } catch { return }
       if (!payload?.onionAddr || !payload.callId) return
       if (seenOffers.current.has(payload.callId)) return
@@ -46,6 +52,20 @@ export default function Home() {
       if (seenOffers.current.size > 500) {
         seenOffers.current.delete(seenOffers.current.values().next().value!)
       }
+
+      // File transfer offer
+      if (payload.type === 'file') {
+        setIncomingFile({
+          transferId: payload.callId,
+          onionAddr: payload.onionAddr,
+          handle: '',
+          name: payload.fileName ?? 'unknown',
+          size: payload.fileSize ?? 0,
+        })
+        return
+      }
+
+      // Call offer
       const active = await gc.getCallState?.().catch(() => null)
       if (active) return
       try {
@@ -56,7 +76,7 @@ export default function Home() {
         setStatusMsg(`Incoming call failed: ${(e as Error).message}`)
       }
     })
-    return () => { c1?.(); c2?.(); c3?.(); c4?.() }
+    return () => { c1?.(); c2?.(); c3?.(); c4?.(); c5?.() }
   }, [])
 
   async function goOnline() {
@@ -251,7 +271,28 @@ export default function Home() {
         )}
 
         {activeTab === 'payments' && <PaymentsPage />}
+        {activeTab === 'files' && <FileTransferPage />}
       </div>
+
+      {incomingFile && (
+        <FileTransferModal
+          file={incomingFile}
+          onAccept={async () => {
+            await (window as any).ghostcall?.acceptFileTransfer?.(incomingFile.transferId)
+            // Only dial out on the Nostr-offer path (receiver dials caller's onion).
+            // On the direct IPC path the transport is already connected — skip fileConnect.
+            if (incomingFile.onionAddr) {
+              await (window as any).ghostcall?.fileConnect?.(incomingFile.onionAddr)
+            }
+            setIncomingFile(null)
+            setActiveTab('files')
+          }}
+          onReject={async () => {
+            await (window as any).ghostcall?.rejectFileTransfer?.(incomingFile.transferId)
+            setIncomingFile(null)
+          }}
+        />
+      )}
 
       {pendingPayment && (
         <PaymentModal
@@ -288,6 +329,17 @@ export default function Home() {
             label: 'Payments',
             active: activeTab === 'payments',
             onClick: () => setActiveTab('payments'),
+          },
+          {
+            icon: (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                <polyline points="13 2 13 9 20 9"/>
+              </svg>
+            ),
+            label: 'Files',
+            active: activeTab === 'files',
+            onClick: () => setActiveTab('files'),
           },
           {
             icon: (

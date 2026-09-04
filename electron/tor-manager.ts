@@ -20,12 +20,8 @@ export class TorManager {
   async start(): Promise<void> {
     if (this._running) return
 
-    // If Tor is already running externally (SOCKS5 + control port open), attach to it
-    const alreadyRunning = await this._checkAlreadyRunning()
-    if (alreadyRunning) {
-      this._running = true
-      return
-    }
+    // Never attach to an external/system Tor — always spawn our own with the
+    // required control port and cookie auth so ADD_ONION works reliably.
 
     const torBin = process.env.TOR_BINARY_PATH || this._findTorBinary()
 
@@ -223,7 +219,7 @@ export class TorManager {
 
   stop(): void {
     this._running = false
-    // Close all persistent onion sockets
+    // Close all persistent onion sockets (destroys ephemeral onion services)
     for (const [, sock] of this.onionSockets) {
       this._safeClose(sock)
     }

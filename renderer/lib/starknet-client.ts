@@ -1,4 +1,4 @@
-import { RpcProvider, Account, Contract, num, hash, CallData } from 'starknet'
+import { RpcProvider, Account, Contract, num, hash, CallData, type ResourceBoundsBN } from 'starknet'
 
 // OZ Cairo 1 (Sierra) account class hash — used for counterfactual address derivation
 // and deployAccount. Must match the hash used in identity-manager.ts.
@@ -17,6 +17,18 @@ const deployments = require('../../contracts/deployments.json')
 // directly from env in scripts/live tests)
 let _provider: RpcProvider | undefined
 let _account: Account | undefined
+
+// Conservative explicit fee details for Sepolia V3 transactions.
+// Bypasses fee estimation (which requires ≥10 recent V3 txs in mempool —
+// unreliable on sparse testnets). Values tuned for typical contract calls.
+// Observed on live Sepolia V3 txs: execution uses l2_gas, DA uses l1_data_gas,
+// l1_gas is 0. Tip 1 Gwei. Values set 10× above observed block prices.
+const SEPOLIA_RESOURCE_BOUNDS: ResourceBoundsBN = {
+  l1_gas: { max_amount: 0n, max_price_per_unit: 0x10000000000000n },
+  l2_gas: { max_amount: 0x800000n, max_price_per_unit: 0x1000000000n }, // 8M — actual ~4.5M for register
+  l1_data_gas: { max_amount: 0x1000n, max_price_per_unit: 0x10000000000n },
+}
+const SEPOLIA_TIP = 100_000_000_000n // 100 Gwei tip — needed to survive Sepolia mempool TTL
 
 function requireProvider(): RpcProvider {
   if (!_provider) throw new Error('Starknet client not initialized — call initStarknetClient first')
@@ -111,15 +123,16 @@ export async function registerHandle(
   const { pk, routingPk } = stealthToNostrKeypair(kp.skV)
   const nostrPkFelt = BigInt('0x' + routingPk)
   const nostrHiFelt = BigInt('0x' + pk.slice(0, pk.length - 62))
-  const res = await contract.register(
+  const call = contract.populate('register', [
     num.toHex(handleHash),
     num.toHex(kp.pkV.x),
     num.toHex(kp.pkV.y),
     num.toHex(kp.pkS.x),
     num.toHex(kp.pkS.y),
     num.toHex(nostrPkFelt),
-    num.toHex(nostrHiFelt)
-  )
+    num.toHex(nostrHiFelt),
+  ])
+  const res = await account.execute(call, { resourceBounds: SEPOLIA_RESOURCE_BOUNDS, tip: SEPOLIA_TIP })
   const receipt = await requireProvider().waitForTransaction(res.transaction_hash)
   if ('execution_status' in receipt && (receipt as any).execution_status === 'REVERTED') {
     throw new Error(`Transaction reverted: ${(receipt as any).revert_reason ?? 'unknown reason'}`)
@@ -159,8 +172,10 @@ export async function lookupHandle(handle: string): Promise<StealthMeta> {
  */
 export async function commitCall(callId: string | bigint): Promise<string> {
   const commitment = typeof callId === 'string' ? BigInt(callId) : callId
-  const contract = makeContract(callLogSierra.abi, deployments.CallLog.address, requireAccount())
-  const res = await contract.commit_call(num.toHex(commitment))
+  const account = requireAccount()
+  const contract = makeContract(callLogSierra.abi, deployments.CallLog.address, account)
+  const call = contract.populate('commit_call', [num.toHex(commitment)])
+  const res = await account.execute(call, { resourceBounds: SEPOLIA_RESOURCE_BOUNDS, tip: SEPOLIA_TIP })
   const receipt = await requireProvider().waitForTransaction(res.transaction_hash)
   if ('execution_status' in receipt && (receipt as any).execution_status === 'REVERTED') {
     throw new Error(`Transaction reverted: ${(receipt as any).revert_reason ?? 'unknown reason'}`)

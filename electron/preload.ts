@@ -80,6 +80,24 @@ contextBridge.exposeInMainWorld('ghostcall', {
   // Call log
   commitCall: (callId: string) => ipcRenderer.invoke('starknet:commitCall', { callId }),
 
+  // File transfer
+  pickFile: () => ipcRenderer.invoke('file:pick'),
+  sendFile: (filePath: string) => ipcRenderer.invoke('file:send', { filePath }),
+  fileGoOnline: (filePath: string, transferId: string) => ipcRenderer.invoke('file:go-online', { filePath, transferId }),
+  fileConnect: (onionAddr: string) => ipcRenderer.invoke('file:connect', { onionAddr }),
+  fileHangUp: () => ipcRenderer.invoke('file:hang-up'),
+  acceptFileTransfer: (transferId: string) => ipcRenderer.invoke('file:accept', { transferId }),
+  rejectFileTransfer: (transferId: string) => ipcRenderer.invoke('file:reject', { transferId }),
+  cancelFileTransfer: () => ipcRenderer.invoke('file:cancel'),
+  onIncomingFile: (cb: (data: { handle: string; name: string; size: number; transferId: string; onionAddr: string }) => void) =>
+    onIpc('file:incoming', cb as (...args: unknown[]) => void),
+  onFileProgress: (cb: (data: { transferId: string; bytesSent?: number; bytesReceived?: number; total: number }) => void) =>
+    onIpc('file:progress', cb as (...args: unknown[]) => void),
+  onFileDone: (cb: (data: { transferId: string; savedPath: string }) => void) =>
+    onIpc('file:done', cb as (...args: unknown[]) => void),
+  onFileError: (cb: (data: { transferId: string; message: string }) => void) =>
+    onIpc('file:error', cb as (...args: unknown[]) => void),
+
   // Identity
   identityExists: () => ipcRenderer.invoke('identity:exists'),
   identityCreate: () => ipcRenderer.invoke('identity:create'),

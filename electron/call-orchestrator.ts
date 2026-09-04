@@ -2,10 +2,10 @@ import type { BrowserWindow } from 'electron'
 import { ipcMain } from 'electron'
 import { torManager } from './tor-manager'
 import { onionServer } from './onion-server'
-import { NoiseSession } from './noise-session'
+import { noiseKeygen, NoiseSession } from './noise-session'
 import { connectToOnion, ONION_ADDR_RE } from './onion-client'
 import { setActiveTransport, clearTransport, isTransportActive, registerAudioIpcHandlers } from './audio-bridge'
-import { noiseKeygen } from './noise-session'
+import { runSender, runReceiver, clearFileTransfer } from './file-bridge'
 
 const ONION_PORT = 7331
 
@@ -182,6 +182,67 @@ export function registerCallIpcHandlers(win: BrowserWindow, hooks: CallIpcHooks 
     // Clear callee address on hang-up to prevent stale data on next call
     hooks.onHangUp?.()
     await hangUp()
+    return { ok: true }
+  })
+
+  // ── File transfer session handlers ────────────────────────────────────────
+  // Reuse same onion/Noise_XX machinery; route transport to file bridge instead
+  // of audio bridge. Sender goes online, publishes Nostr offer with type=file;
+  // receiver dials back via file:connect.
+
+  ipcMain.handle('file:go-online', async (_e, { filePath, transferId }: { filePath: string; transferId: string }) => {
+    // Reject if an audio call is active — audio and file share the same onion server
+    if (isTransportActive()) throw new Error('Cannot start file transfer while a call is active')
+
+    try {
+      const addr = await goOnline()
+      const noiseKeys = noiseKeygen()
+
+      // Bind the inbound listener for the file sender, replacing any prior listener.
+      // Always re-close and re-listen so a new file pick gets a fresh callback with
+      // the correct filePath/transferId and pending resets to false.
+      if (onionServer.isListening()) await onionServer.close()
+      let pending = false
+      await onionServer.listen(ONION_PORT, async (socket) => {
+        if (isTransportActive() || pending) { socket.destroy(); return }
+        pending = true
+        try {
+          const transport = await NoiseSession.handshakeResponder(socket, noiseKeys.secretKey)
+          pending = false  // reset so a retry after failure can connect
+          runSender(transport, filePath, win, transferId).catch((e: Error) => {
+            win.webContents.send('file:error', { transferId, message: e.message })
+          })
+        } catch (err) {
+          pending = false
+          socket.destroy()
+        }
+      })
+      return { onionAddr: addr }
+    } catch (err) {
+      throw new Error(`file:go-online failed: ${err}`)
+    }
+  })
+
+  ipcMain.handle('file:connect', async (_e, { onionAddr }: { onionAddr: string }) => {
+    if (typeof onionAddr !== 'string' || !ONION_ADDR_RE.test(onionAddr)) {
+      throw new Error(`Invalid onion address: ${onionAddr}`)
+    }
+    const noiseKeys = noiseKeygen()
+    const socks = torManager.getSocksProxy()
+    const socket = await connectToOnion(onionAddr, socks)
+    const transport = await NoiseSession.handshakeInitiator(socket, noiseKeys.secretKey)
+    // Receiver role: dial in, receive file. Pass preAccepted=true — user accepted
+    // the FileTransferModal before fileConnect was called, so skip re-showing the modal.
+    runReceiver(transport, win, true).catch((e: Error) => {
+      win.webContents.send('file:error', { transferId: '', message: e.message })
+    })
+    return { ok: true }
+  })
+
+  ipcMain.handle('file:hang-up', async () => {
+    clearFileTransfer()
+    // Only tear down the onion service if there's no active audio call sharing it
+    if (!isTransportActive()) await hangUp()
     return { ok: true }
   })
 }
