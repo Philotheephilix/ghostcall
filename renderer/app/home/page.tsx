@@ -130,7 +130,7 @@ export default function Home() {
 
       {/* Hero title + illustration */}
       <div style={{ padding: '28px 28px 0', display: 'flex', flexDirection: 'column' }}>
-        <h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 52, fontWeight: 800, lineHeight: 1.0, letterSpacing: '-0.035em', color: '#111', margin: 0 }}>
+        <h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 52, fontWeight: 800, lineHeight: 1.0, letterSpacing: '-0.035em', color: '#111', margin: 0, whiteSpace: 'pre' }}>
           {isOnline ? 'You\'re\nLive.' : 'Make a\nCall.'}
         </h1>
       </div>

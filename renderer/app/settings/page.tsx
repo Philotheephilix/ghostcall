@@ -83,6 +83,8 @@ export default function Settings() {
       maxWidth: 420,
       margin: '0 auto',
       boxSizing: 'border-box',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
       {/* Header */}
       <div style={{

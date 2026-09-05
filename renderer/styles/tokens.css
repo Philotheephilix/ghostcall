@@ -66,6 +66,29 @@
   --sp-12: 48px;
   --sp-16: 64px;
 
+  /* ── Radius extended ── */
+  --radius-lg:     24px;
+  --radius-xl:     32px;
+
+  /* ── Glass surfaces ── */
+  --glass-thin:       rgba(255,255,255,0.35);
+  --glass-chrome:     rgba(255,255,255,0.55);
+  --glass-border:     rgba(17,17,17,0.12);
+  --glass-border-sub: rgba(17,17,17,0.08);
+
+  /* ── Label hierarchy (dark-on-light) ── */
+  --label-primary:     #111111;
+  --label-secondary:   #2d2d2d;
+  --label-tertiary:    #5a5a5a;
+  --label-quaternary:  #9ca3af;
+
+  /* ── Accent ── */
+  --accent: var(--system-blue);
+
+  /* ── Text-role aliases ── */
+  --text-subhead:  15px;
+  --text-caption1: 12px;
+
   /* Legacy aliases */
   --space-1:  4px;
   --space-2:  8px;

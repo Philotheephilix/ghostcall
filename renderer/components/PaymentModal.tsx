@@ -151,7 +151,7 @@ export default function PaymentModal({ peer, onDismiss, onPaid }: Props) {
                 disabled={status === 'pending' || !amount || parseFloat(amount) <= 0}
                 style={{
                   flex: 2, padding: '13px 0',
-                  background: status === 'pending' ? 'rgba(10,132,255,0.3)' : 'rgba(10,132,255,0.85)',
+                  background: status === 'pending' ? 'rgba(59,130,246,0.3)' : 'var(--system-blue)',
                   border: 'none', borderRadius: 'var(--radius-md)',
                   color: '#fff', fontSize: 15, fontWeight: 600,
                   cursor: status === 'pending' ? 'default' : 'pointer',

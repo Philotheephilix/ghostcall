@@ -193,7 +193,6 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          minHeight: '100vh',
           animation: 'slideIn 300ms ease',
         }}
       >
@@ -260,12 +259,6 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         </div>
       </div>
 
-      <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(32px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
     </div>
   )
 }
