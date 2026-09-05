@@ -5,7 +5,9 @@
   "demo_url": "https://github.com/Philotheephilix/ghostcall",
   "transactions": [
     "0x5fcfa59cb4dcd496ea78f31d082beb790df77ca3674754b42ce9a9852cfffe",
-    "0x2c0fab5eb5a2d47aa3cf30e0fe000b026faf93489ef41ef312828e1b8c4bfb8"
+    "0x2c0fab5eb5a2d47aa3cf30e0fe000b026faf93489ef41ef312828e1b8c4bfb8",
+    "0x2a4bc1ffa34e8c78c0e9ef18b080054b1313c9f57ff72e8d87eee1ec3518c70",
+    "0x5ea2e9529434162d6d955b4d923fcfe6b0760b74f673ac398b3e4ca3c521006"
   ],
   "contracts": [
     "0xcaac954e489813c8ce481f72864f16a1723471ee782fabc87431c9f8c4e8e1",
@@ -14,9 +16,12 @@
   "_notes": {
     "transactions[0]": "StealthRegistry register() call — Sepolia testnet (deploy + live test)",
     "transactions[1]": "CallLog commit_call() call — Sepolia testnet (live test)",
-    "TODO_tx_3": "STRK20 pool private transfer — mainnet pool 0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a. Pool is mainnet-only; see scripts/register-strk20-pool.ts for the registration script. Add tx hash here once mainnet account is funded.",
+    "transactions[2]": "OZ account deploy-account — Starknet MAINNET block 14402596 (GhostCall payment account)",
+    "transactions[3]": "STRK ERC-20 transfer — Starknet MAINNET (live GhostCall payment demonstration)",
     "contracts[0]": "StealthRegistry — Sepolia testnet deployment",
-    "contracts[1]": "CallLog — Sepolia testnet deployment"
+    "contracts[1]": "CallLog — Sepolia testnet deployment",
+    "mainnet_account": "0x110f45ad2fb1bfec155be2668dd43dabc5b71b269851b9c648205ba5e21e2a4",
+    "mainnet_rpc": "https://rpc.starknet.lava.build"
   },
   "stack": [
     "Cairo 2.x",
