@@ -30,6 +30,7 @@ export default function FileTransferPage() {
   const gc = (window as any).ghostcall
 
   useEffect(() => {
+    if (!gc) return
     const cleanups: Array<() => void> = []
     const c1 = gc.onFileProgress?.((data: { transferId: string; bytesSent?: number; bytesReceived?: number; total: number }) => {
       setTransfer(prev => prev ? {
@@ -52,9 +53,9 @@ export default function FileTransferPage() {
   }, [])
 
   async function pickAndSend() {
+    if (!gc) return
     setErr('')
     try {
-      // Pick file via native dialog (main process)
       const filePath: string | null = await gc.pickFile()
       if (!filePath) return
 
@@ -81,6 +82,7 @@ export default function FileTransferPage() {
   }
 
   async function cancel() {
+    if (!gc) return
     await gc.cancelFileTransfer?.()
     await gc.fileHangUp?.()
     setTransfer(null)
