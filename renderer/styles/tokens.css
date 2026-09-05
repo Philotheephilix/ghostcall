@@ -84,6 +84,7 @@
 
   /* ── Accent ── */
   --accent: var(--system-blue);
+  --turmeric: #f59e0b;
 
   /* ── Text-role aliases ── */
   --text-subhead:  15px;
