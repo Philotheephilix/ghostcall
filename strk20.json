@@ -1,30 +1,28 @@
 {
   "name": "GhostCall",
-  "description": "Trustless 1:1 audio calls on Starknet. Tor onion transport (no TURN server), stealth addresses (ERC-5564), Noise_XX encryption, STRK20 shielded payments. First Web3 calling app with genuine IP privacy.",
-  "demo_video": "",
+  "description": "Trustless 1:1 audio calls on Starknet. Tor onion transport, Noise_XX encryption, Nostr signaling, STRK20 shielded payments. No IP leaks. No TURN servers.",
   "demo_url": "https://github.com/Philotheephilix/ghostcall",
+  "repo": "https://github.com/Philotheephilix/ghostcall",
+  "problem": "Every existing calling app leaks your IP to the counterparty or to a relay. Web3 calling apps add on-chain payments but still route audio through centralized TURN servers.",
+  "solution": "GhostCall routes every call through a Tor v3 onion service — no TURN, no IP exposure. Noise_XX encrypts the audio stream end-to-end. Nostr NIP-59 gift-wraps the call signal. Post-call payments settle privately via STRK20.",
+  "diagram": "graph LR\n  A[Caller] -->|Nostr NIP-59 gift-wrap| B[Relay]\n  B -->|signal| C[Callee]\n  A -->|Tor Noise_XX audio| D[Onion service]\n  D --> C\n  C -->|STRK20 shielded payment| E[Pool]\n  E -->|private note| A",
   "transactions": [
-    "0x5fcfa59cb4dcd496ea78f31d082beb790df77ca3674754b42ce9a9852cfffe",
-    "0x2c0fab5eb5a2d47aa3cf30e0fe000b026faf93489ef41ef312828e1b8c4bfb8",
-    "0x2a4bc1ffa34e8c78c0e9ef18b080054b1313c9f57ff72e8d87eee1ec3518c70",
-    "0x5ea2e9529434162d6d955b4d923fcfe6b0760b74f673ac398b3e4ca3c521006",
-    "0x715001bd60145b1ccf2cf17b4b4cfee590dd7d147408a368a9816e55429a3a0"
+    "https://sepolia.voyager.online/tx/0x5fcfa59cb4dcd496ea78f31d082beb790df77ca3674754b42ce9a9852cfffe",
+    "https://sepolia.voyager.online/tx/0x2c0fab5eb5a2d47aa3cf30e0fe000b026faf93489ef41ef312828e1b8c4bfb8",
+    "https://voyager.online/tx/0x2a4bc1ffa34e8c78c0e9ef18b080054b1313c9f57ff72e8d87eee1ec3518c70",
+    "https://voyager.online/tx/0x5ea2e9529434162d6d955b4d923fcfe6b0760b74f673ac398b3e4ca3c521006",
+    "https://voyager.online/tx/0x715001bd60145b1ccf2cf17b4b4cfee590dd7d147408a368a9816e55429a3a0"
   ],
   "contracts": [
-    "0xcaac954e489813c8ce481f72864f16a1723471ee782fabc87431c9f8c4e8e1",
-    "0x2fbcdaf58ceb28e8007edd37f9d3f2e4be7ddc2d326972124a52aababc1f6ba"
+    "https://sepolia.voyager.online/contract/0xcaac954e489813c8ce481f72864f16a1723471ee782fabc87431c9f8c4e8e1",
+    "https://sepolia.voyager.online/contract/0x2fbcdaf58ceb28e8007edd37f9d3f2e4be7ddc2d326972124a52aababc1f6ba"
   ],
-  "_notes": {
-    "transactions[0]": "StealthRegistry register() — Sepolia testnet (deploy + live test) SUCCEEDED",
-    "transactions[1]": "CallLog commit_call() — Sepolia testnet (live test) SUCCEEDED",
-    "transactions[2]": "OZ account deploy-account — Starknet MAINNET block 14402596 SUCCEEDED/ACCEPTED_ON_L2",
-    "transactions[3]": "STRK ERC-20 transfer — Starknet MAINNET block 14402976 SUCCEEDED/ACCEPTED_ON_L2 (signalling flow demo)",
-    "transactions[4]": "STRK post-call payment — Starknet MAINNET block 14405390 SUCCEEDED/ACCEPTED_ON_L2 (GhostCall payment flow)",
-    "contracts[0]": "StealthRegistry — Sepolia testnet 0xcaac954e...",
-    "contracts[1]": "CallLog — Sepolia testnet 0x2fbcdaf5...",
-    "mainnet_account": "0x110f45ad2fb1bfec155be2668dd43dabc5b71b269851b9c648205ba5e21e2a4",
-    "call_signaling_test": "PASSED — Tor Noise_XX E2E call Alice→Bob (400 frames / 8s Opus audio), Nostr NIP-44/59 signal roundtrip via relay.primal.net PASSED",
-    "private_payment_sdk": "STRK20 pool SDK integrated (@starkware-libs/starknet-privacy-sdk), pool at 0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a — FPI proving endpoint required for pool ops (gated)"
+  "tx_labels": {
+    "0": "StealthRegistry register() — Sepolia",
+    "1": "CallLog commit_call() — Sepolia",
+    "2": "Account deploy-account — Mainnet block 14402596",
+    "3": "STRK transfer (signaling demo) — Mainnet block 14402976",
+    "4": "Post-call STRK payment — Mainnet block 14405390"
   },
   "stack": [
     "Cairo 2.x",
@@ -37,6 +35,5 @@
     "Electron 32",
     "Next.js 14"
   ],
-  "repo": "https://github.com/Philotheephilix/ghostcall",
   "license": "Apache-2.0"
 }
