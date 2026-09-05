@@ -1,14 +1,11 @@
 // Runs in Electron renderer (Chromium context)
 //
 // Audio architecture:
-//   Renderer:  getUserMedia → raw Float32 PCM → IPC → main process
-//   Main:      Float32 PCM → Opus encode → Noise encrypt → Tor → (reverse on recv)
-//   Renderer:  ← IPC ← Float32 PCM ← Opus decode ← Noise decrypt ← Tor
-//
-// opusscript WASM runs in the main process (Node.js) — no WASM sync-fetch issues.
+//   Renderer:  getUserMedia → raw PCM Int16 → IPC → main → Noise encrypt → Tor
+//   Renderer:  ← IPC ← raw PCM Int16 ← Noise decrypt ← Tor
 
 const SAMPLE_RATE = 16000
-const FRAME_SIZE = 256    // ScriptProcessor buffer — must be power-of-2; bridge accumulates into 320-sample Opus frames
+const FRAME_SIZE = 256    // ScriptProcessor buffer — must be power-of-2
 const CHANNELS = 1
 
 let audioContext: AudioContext | null = null

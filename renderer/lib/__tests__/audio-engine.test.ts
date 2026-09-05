@@ -1,8 +1,7 @@
 /**
  * Tests for renderer/lib/audio-engine.ts
  *
- * Opus encoding/decoding now happens in the main process.
- * Renderer sends raw PCM Int16 and receives PCM Int16 for playback.
+ * Renderer sends raw PCM Int16 over IPC; main process forwards it directly.
  */
 
 // ─── Mocks ─────────────────────────────────────────────────────────────────
@@ -62,7 +61,7 @@ const mockSendAudioFrame = jest.fn()
 
 import { startCapture, stopCapture, setMuted, playInboundFrame } from '../audio-engine'
 
-const FRAME_SIZE = 256   // ScriptProcessor buffer size (power-of-2); Opus frames are 320 in the bridge
+const FRAME_SIZE = 256   // ScriptProcessor buffer size (must be power-of-2)
 const CHANNELS = 1
 const SAMPLE_RATE = 16000
 
@@ -98,13 +97,13 @@ describe('audio-engine', () => {
     stopCapture()
   })
 
-  test('2. onaudioprocess sends raw PCM Int16 to main process (no Opus in renderer)', async () => {
+  test('2. onaudioprocess sends raw PCM Int16 to main process', async () => {
     await startCapture()
 
     const event = makePcmEvent(FRAME_SIZE)
     mockScriptProcessor.onaudioprocess!(event)
 
-    // Renderer sends PCM Int16 buffer — Opus encoding happens in main process
+    // Renderer sends raw PCM Int16 buffer directly over IPC
     expect(mockSendAudioFrame).toHaveBeenCalledTimes(1)
     const sentBuf: Buffer = mockSendAudioFrame.mock.calls[0][0]
     // PCM Int16 = 2 bytes per sample

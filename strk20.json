@@ -31,7 +31,6 @@
     "Tor v3 onion services",
     "Noise_XX (X25519 + ChaCha20-Poly1305)",
     "Nostr NIP-44/NIP-59",
-    "Opus (opusscript)",
     "Electron 32",
     "Next.js 14"
   ],
