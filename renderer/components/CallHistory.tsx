@@ -32,15 +32,15 @@ export default function CallHistory() {
     return (
       <div style={{
         padding: '20px 14px',
-        background: 'rgba(255,255,255,0.02)',
-        border: '1px solid rgba(255,255,255,0.04)',
+        background: 'rgba(74,11,16,0.65)',
+        border: '1px solid rgba(253,205,42,0.15)',
         borderRadius: 'var(--radius-md)',
         textAlign: 'center',
       }}>
         <span style={{
           fontFamily: 'var(--font-mono)', fontSize: 10,
-          color: 'var(--label-quaternary)', letterSpacing: '0.08em',
-          textTransform: 'uppercase',
+          color: 'var(--cream)', letterSpacing: '0.08em',
+          textTransform: 'uppercase', opacity: 0.55,
         }}>
           No calls
         </span>

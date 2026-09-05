@@ -114,8 +114,10 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
             <div style={{ position: 'relative' }}>
               <span style={{
                 position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                fontFamily: 'var(--font-mono)', fontSize: 16, color: 'var(--accent)',
+                fontFamily: 'var(--font-mono)', fontSize: 16,
+                color: handle ? 'var(--turmeric)' : 'var(--label-tertiary)',
                 pointerEvents: 'none', lineHeight: 1,
+                transition: 'color 150ms',
               }}>@</span>
               <input
                 className="input-glass"
@@ -133,6 +135,9 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
               className="btn-primary"
               onClick={callByHandle}
               disabled={!handle || isCalling || !torReady}
+              style={{ letterSpacing: '0.06em', transition: 'letter-spacing 200ms, box-shadow 150ms, opacity 100ms, transform 80ms var(--spring)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.letterSpacing = '0.12em' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.letterSpacing = '0.06em' }}
             >
               {isCalling ? 'Connecting…' : 'Call'}
             </button>
@@ -154,6 +159,9 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
               className="btn-primary"
               onClick={callDirect}
               disabled={!directAddr || isCalling || !torReady}
+              style={{ letterSpacing: '0.06em', transition: 'letter-spacing 200ms, box-shadow 150ms, opacity 100ms, transform 80ms var(--spring)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.letterSpacing = '0.12em' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.letterSpacing = '0.06em' }}
             >
               {isCalling ? 'Connecting…' : 'Call'}
             </button>
@@ -185,7 +193,8 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
           width: '100%', padding: '14px 16px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'transparent', border: 'none', cursor: isOnline ? 'default' : 'pointer',
-          transition: 'background 120ms',
+          transition: 'background 120ms, opacity 400ms',
+          opacity: !torReady ? 0.4 : 1,
         }}
         className={!isOnline ? 'hover:bg-glass-thin' : ''}
       >
@@ -193,15 +202,15 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
           {isOnline && (
             <div style={{
               width: 6, height: 6, borderRadius: '50%',
-              background: 'var(--system-green)',
-              boxShadow: '0 0 8px rgba(48,209,88,0.7)',
+              background: 'var(--turmeric)',
+              boxShadow: '0 0 8px rgba(253,205,42,0.6)',
               animation: 'pulse-dot 2.5s ease-in-out infinite',
             }} />
           )}
           <span style={{
             fontFamily: 'var(--font-mono)', fontSize: 11,
             fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: isOnline ? 'var(--system-green)' : 'var(--label-secondary)',
+            color: isOnline ? 'var(--turmeric)' : 'var(--label-secondary)',
           }}>
             {isOnline ? 'Online' : isGoingOnline ? 'Starting…' : 'Go online'}
           </span>
@@ -212,7 +221,7 @@ export default function DialPad({ onionAddr, isOnline, torReady = true, onGoOnli
               title="Click to copy"
               style={{
                 fontSize: 9, fontFamily: 'var(--font-mono)',
-                color: 'var(--system-green)', opacity: 0.5,
+                color: 'var(--turmeric)', opacity: 0.5,
                 cursor: 'copy', letterSpacing: '0.04em',
               }}
             >

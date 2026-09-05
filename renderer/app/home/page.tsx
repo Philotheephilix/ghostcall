@@ -1,17 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import Logo from '../../components/Logo'
-import DialPad from '../../components/DialPad'
-import CallHistory from '../../components/CallHistory'
 import PaymentModal from '../../components/PaymentModal'
 import PaymentsPage from '../../components/PaymentsPage'
 import FileTransferPage from '../../components/FileTransferPage'
 import FileTransferModal, { type IncomingFile } from '../../components/FileTransferModal'
 import Dock from '../../components/Dock'
-import LineWaves from '../../components/LineWaves'
 import { useTorStatus } from '../../hooks/useTorStatus'
 import { appendCallLog, markCallPaid, loadState } from '../../lib/app-state'
+
+type InputMode = 'HANDLE' | 'ONION'
 
 export default function Home() {
   const torStatus = useTorStatus()
@@ -22,6 +20,8 @@ export default function Home() {
   const [historyKey, setHistoryKey] = useState(0)
   const [activeTab, setActiveTab] = useState<'dial' | 'payments' | 'files'>('dial')
   const [incomingFile, setIncomingFile] = useState<IncomingFile | null>(null)
+  const [inputMode, setInputMode] = useState<InputMode>('HANDLE')
+  const [callTarget, setCallTarget] = useState('')
   const seenOffers = useRef<Set<string>>(new Set())
   const state = useMemo(() => loadState(), [])
 
@@ -53,7 +53,6 @@ export default function Home() {
         seenOffers.current.delete(seenOffers.current.values().next().value!)
       }
 
-      // File transfer offer
       if (payload.type === 'file') {
         setIncomingFile({
           transferId: payload.callId,
@@ -65,7 +64,6 @@ export default function Home() {
         return
       }
 
-      // Call offer
       const active = await gc.getCallState?.().catch(() => null)
       if (active) return
       try {
@@ -98,174 +96,118 @@ export default function Home() {
     }
   }
 
+  async function initiateCall() {
+    if (!callTarget.trim()) return
+    const gc = (window as any).ghostcall
+    try {
+      await gc?.initiateCall?.(callTarget.trim())
+      window.location.href = '/call'
+    } catch (e) {
+      setStatusMsg((e as Error).message)
+    }
+  }
+
   const torOk = torStatus?.running === true
   const handle = state.handle || null
 
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      paddingBottom: 96,
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      {/* Iridescence background — full viewport, behind all content */}
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        opacity: torOk ? 0.55 : 0.22,
-        transition: 'opacity 1.4s ease',
-      }}>
-        <LineWaves
-          color1={torOk ? '#C6F135' : '#2a2d28'}
-          color2={torOk ? '#a8d420' : '#1e2018'}
-          color3={torOk ? '#e8ff60' : '#333530'}
-          speed={0.25}
-          brightness={torOk ? 0.28 : 0.12}
-          warpIntensity={0.8}
-          innerLineCount={28}
-          outerLineCount={32}
-          rotation={-35}
-          colorCycleSpeed={0.4}
-          enableMouseInteraction={false}
-        />
-      </div>
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fedfcb', paddingBottom: 96 }}>
 
-      {/* Header strip */}
-      <div style={{
-        width: '100%',
-        maxWidth: 420,
-        padding: '20px 20px 0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'relative', zIndex: 1,
-      }}>
-        {/* Identity badge */}
+      {/* Top bar */}
+      <div style={{ padding: '52px 28px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Logo size={32} glowColor={torOk ? 'rgba(198,241,53,0.9)' : 'rgba(255,255,255,0.15)'} />
-          <div>
-            {handle ? (
-              <span style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 13,
-                fontWeight: 600,
-                color: 'var(--accent)',
-                letterSpacing: '0.02em',
-              }}>
-                @{handle}
-              </span>
-            ) : (
-              <span style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--label-quaternary)',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-              }}>
-                no handle
-              </span>
-            )}
-            <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 9,
-              color: 'var(--label-quaternary)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              marginTop: 1,
-            }}>
-              GHOSTCALL
-            </div>
-          </div>
+          <div style={{ background: '#111', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 800, letterSpacing: '-0.01em' }}>GC</div>
+          {handle
+            ? <span style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>@{handle}</span>
+            : <span style={{ fontSize: 13, color: '#5a5a5a' }}>ghostcall</span>
+          }
         </div>
-
-        {/* Network status */}
-        <div className={`status-pill ${torOk ? 'status-pill--connected' : torStatus === null ? 'status-pill--offline' : 'status-pill--error'}`}>
-          <span className="dot" />
-          <span>
-            {torOk
-              ? isOnline ? 'ONLINE' : 'TOR OK'
-              : torStatus === null ? 'INIT...' : 'TOR ERR'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(17,17,17,0.08)', borderRadius: 999, padding: '5px 14px', fontSize: 11, fontWeight: 700, color: isOnline ? '#16a34a' : '#5a5a5a', letterSpacing: '0.03em' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: isOnline ? '#22c55e' : '#9ca3af', flexShrink: 0 }} />
+          {isOnline ? 'Online' : 'Offline'}
         </div>
       </div>
 
-      {/* Main content */}
-      <div style={{ width: '100%', maxWidth: 420, padding: '28px 20px 0', flex: 1, position: 'relative', zIndex: 1 }}>
+      {/* Hero title + illustration */}
+      <div style={{ padding: '28px 28px 0', display: 'flex', flexDirection: 'column' }}>
+        <h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 52, fontWeight: 800, lineHeight: 1.0, letterSpacing: '-0.035em', color: '#111', margin: 0 }}>
+          {isOnline ? 'You\'re\nLive.' : 'Make a\nCall.'}
+        </h1>
+      </div>
+
+      {/* Illustration */}
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 8px' }}>
+        <svg width="200" height="140" viewBox="0 0 200 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Handset */}
+          <rect x="72" y="20" width="56" height="96" rx="16" fill="#fff" stroke="#111" strokeWidth="5"/>
+          <rect x="80" y="32" width="40" height="56" rx="6" fill="#fedfcb" stroke="#111" strokeWidth="3"/>
+          <circle cx="100" cy="104" r="6" stroke="#111" strokeWidth="3.5" fill="none"/>
+          {/* Signal arcs left */}
+          <path d="M56 58 Q48 70 56 82" stroke="#111" strokeWidth="4" fill="none" strokeLinecap="round"/>
+          <path d="M44 50 Q32 70 44 90" stroke="#111" strokeWidth="4" fill="none" strokeLinecap="round"/>
+          {/* Signal arcs right */}
+          <path d="M144 58 Q152 70 144 82" stroke="#111" strokeWidth="4" fill="none" strokeLinecap="round"/>
+          <path d="M156 50 Q168 70 156 90" stroke="#111" strokeWidth="4" fill="none" strokeLinecap="round"/>
+          {/* Lock icon on screen */}
+          <rect x="90" y="46" width="20" height="16" rx="4" fill="#111"/>
+          <path d="M94 46 L94 42 Q94 36 100 36 Q106 36 106 42 L106 46" fill="none" stroke="#111" strokeWidth="3.5" strokeLinecap="round"/>
+          {/* Action lines */}
+          <line x1="72" y1="18" x2="66" y2="10" stroke="#111" strokeWidth="3.5" strokeLinecap="round"/>
+          <line x1="100" y1="14" x2="100" y2="6" stroke="#111" strokeWidth="3.5" strokeLinecap="round"/>
+          <line x1="128" y1="18" x2="134" y2="10" stroke="#111" strokeWidth="3.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+
+      {/* Segmented tabs */}
+      <div style={{ padding: '0 28px 12px' }}>
+        <div className="seg-control">
+          {(['dial', 'payments', 'files'] as const).map(tab => (
+            <button key={tab} className={`seg-btn${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
+              {tab.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, padding: '0 28px', maxWidth: 480, width: '100%', alignSelf: 'center', boxSizing: 'border-box' }}>
 
         {activeTab === 'dial' && (
           <>
-            {/* Onion address display when online */}
-            {isOnline && onionAddr && (
-              <div style={{
-                marginBottom: 16,
-                padding: '10px 14px',
-                background: 'rgba(198,241,53,0.05)',
-                border: '1px solid rgba(198,241,53,0.15)',
-                borderRadius: 'var(--radius-sm)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}>
-                <div style={{
-                  width: 5, height: 5, borderRadius: '50%',
-                  background: 'var(--accent)',
-                  boxShadow: '0 0 8px rgba(198,241,53,0.7)',
-                  flexShrink: 0,
-                  animation: 'pulse-dot 2s ease-in-out infinite',
-                }} />
-                <span style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 10,
-                  color: 'var(--accent)',
-                  letterSpacing: '0.04em',
-                  wordBreak: 'break-all',
-                  lineHeight: 1.4,
-                }}>
-                  {onionAddr.slice(0, 28)}…
-                </span>
+            <div className="card-white" style={{ padding: 20, marginBottom: 14 }}>
+              <div className="seg-control" style={{ marginBottom: 14 }}>
+                {(['HANDLE', 'ONION'] as InputMode[]).map(m => (
+                  <button key={m} className={`seg-btn${inputMode === m ? ' active' : ''}`} onClick={() => setInputMode(m)}>{m}</button>
+                ))}
               </div>
-            )}
-
-            <div className="glass-card" style={{ width: '100%', padding: 0, overflow: 'hidden' }}>
-              <DialPad
-                onionAddr={onionAddr}
-                isOnline={isOnline}
-                torReady={torOk}
-                onGoOnline={goOnline}
+              <input
+                className="sketch-input"
+                type="text"
+                placeholder={inputMode === 'HANDLE' ? '@ handle' : '.onion address'}
+                value={callTarget}
+                onChange={e => setCallTarget(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (isOnline ? initiateCall() : goOnline())}
+                style={{ width: '100%', marginBottom: 14, boxSizing: 'border-box' }}
               />
+              {isOnline
+                ? <button className="btn btn-pill-full" onClick={initiateCall} disabled={!callTarget.trim()}>Call</button>
+                : <button className="btn btn-pill-full" onClick={goOnline}>Go Online →</button>
+              }
             </div>
 
-            {statusMsg && (
-              <p style={{
-                marginTop: 12, fontSize: 11, color: 'var(--system-red)',
-                fontFamily: 'var(--font-mono)', textAlign: 'center',
-                letterSpacing: '0.02em', wordBreak: 'break-all',
-              }}>
-                ERR: {statusMsg}
-              </p>
+            {isOnline && onionAddr && (
+              <div className="card-white" style={{ padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                <span style={{ fontSize: 11, color: '#5a5a5a', flex: 1, wordBreak: 'break-all', fontFamily: 'monospace' }}>{onionAddr.slice(0, 28)}…</span>
+                <button onClick={() => { const gc = (window as any).ghostcall; if (gc?.copyToClipboard) gc.copyToClipboard(onionAddr); else navigator.clipboard?.writeText(onionAddr).catch(() => {}) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#5a5a5a', fontWeight: 600 }}>COPY</button>
+              </div>
             )}
 
-            {/* Call history */}
-            <div style={{ marginTop: 24 }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
-              }}>
-                <span style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 9,
-                  fontWeight: 600,
-                  color: 'var(--label-quaternary)',
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                }}>
-                  CALL LOG
-                </span>
-                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
-              </div>
-              <CallHistory key={historyKey} />
+            {statusMsg && <p style={{ fontSize: 12, color: '#e63946', textAlign: 'center', marginBottom: 12, wordBreak: 'break-all' }}>{statusMsg}</p>}
+
+            <span className="label-tag" style={{ display: 'block', marginBottom: 10 }}>Recent Calls</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <CallHistorySection historyKey={historyKey} />
             </div>
           </>
         )}
@@ -279,8 +221,6 @@ export default function Home() {
           file={incomingFile}
           onAccept={async () => {
             await (window as any).ghostcall?.acceptFileTransfer?.(incomingFile.transferId)
-            // Only dial out on the Nostr-offer path (receiver dials caller's onion).
-            // On the direct IPC path the transport is already connected — skip fileConnect.
             if (incomingFile.onionAddr) {
               await (window as any).ghostcall?.fileConnect?.(incomingFile.onionAddr)
             }
@@ -354,5 +294,45 @@ export default function Home() {
         ]}
       />
     </main>
+  )
+}
+
+// Inline call history section using existing component
+function CallHistorySection({ historyKey }: { historyKey: number }) {
+  const [logs, setLogs] = useState<Array<{ id: string; peer: string; duration: number; ts: number; committed: boolean }>>([])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ghostcall:call-log')
+      if (raw) setLogs(JSON.parse(raw))
+    } catch {}
+  }, [historyKey])
+
+  if (logs.length === 0) {
+    return (
+      <div className="card-white" style={{ padding: '16px 20px' }}>
+        <p style={{ fontSize: 13, color: '#5a5a5a', textAlign: 'center' }}>No recent calls</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {logs.slice().reverse().slice(0, 8).map(log => (
+        <div key={log.id} className="card-white list-row" style={{ padding: '12px 16px' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>
+              {log.peer || 'Unknown'}
+            </div>
+            <div style={{ fontSize: 11, color: '#5a5a5a', marginTop: 2 }}>
+              {new Date(log.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+          <span style={{ fontSize: 12, color: '#5a5a5a' }}>
+            {Math.floor(log.duration / 60)}:{String(log.duration % 60).padStart(2, '0')}
+          </span>
+        </div>
+      ))}
+    </>
   )
 }

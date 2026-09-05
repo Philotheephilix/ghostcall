@@ -17,13 +17,8 @@ interface TransferState {
 
 function ProgressBar({ pct }: { pct: number }) {
   return (
-    <div style={{
-      height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 1, overflow: 'hidden',
-    }}>
-      <div style={{
-        height: '100%', width: `${pct}%`,
-        background: 'var(--accent)', transition: 'width 200ms ease',
-      }} />
+    <div className="progress-bar-track">
+      <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
     </div>
   )
 }
@@ -101,34 +96,38 @@ export default function FileTransferPage() {
 
       {/* Send section */}
       {!transfer && (
-        <div className="glass-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: 'var(--label-quaternary)',
-          }}>
-            SEND FILE
-          </p>
-
-          <div style={{ position: 'relative' }}>
-            <span style={{
-              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-              fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--label-quaternary)',
-              pointerEvents: 'none',
-            }}>@</span>
-            <input
-              className="input-glass"
-              type="text"
-              placeholder="recipient handle"
-              value={handle}
-              onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''))}
-              style={{ paddingLeft: 28, fontFamily: 'var(--font-mono)', fontSize: 12 }}
-            />
+        <>
+          {/* Send card */}
+          <div className="glass-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--label-quaternary)' }}>
+              SEND FILE
+            </p>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--label-quaternary)', pointerEvents: 'none' }}>@</span>
+              <input
+                className="input-glass"
+                type="text"
+                placeholder="recipient handle"
+                value={handle}
+                onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''))}
+                style={{ paddingLeft: 28, fontFamily: 'var(--font-mono)', fontSize: 12 }}
+              />
+            </div>
+            <button className="btn-primary" onClick={pickAndSend} style={{ fontSize: 12, letterSpacing: '0.08em' }}>
+              ↑ PICK FILE & SEND
+            </button>
           </div>
 
-          <button className="btn-primary" onClick={pickAndSend} style={{ fontSize: 12 }}>
-            PICK FILE & SEND
-          </button>
-        </div>
+          {/* Receive hint card */}
+          <div className="glass-card-sm" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--label-quaternary)' }}>
+              RECEIVE
+            </p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--label-tertiary)', lineHeight: 1.6 }}>
+              Incoming files appear as an accept/reject prompt. All transfers are encrypted with Noise_XX over Tor.
+            </p>
+          </div>
+        </>
       )}
 
       {/* Transfer in progress */}
@@ -155,15 +154,16 @@ export default function FileTransferPage() {
             )}
           </div>
 
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--label-primary)', wordBreak: 'break-all' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
             {transfer.name}
           </p>
 
           {transfer.status === 'transferring' && (
             <>
               <ProgressBar pct={pct} />
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--label-tertiary)' }}>
-                {formatSize(transfer.bytesDone)} / {formatSize(transfer.size)} — {pct}%
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--label-tertiary)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{formatSize(transfer.bytesDone)} / {formatSize(transfer.size)}</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
               </p>
             </>
           )}
@@ -172,7 +172,7 @@ export default function FileTransferPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{
                 width: 5, height: 5, borderRadius: '50%',
-                background: 'var(--accent)',
+                background: 'var(--turmeric)',
                 animation: 'pulse-dot 2s ease-in-out infinite',
               }} />
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--label-tertiary)' }}>
@@ -183,9 +183,15 @@ export default function FileTransferPage() {
 
           {transfer.status === 'done' && (
             <>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)' }}>
-                ✓ {formatSize(transfer.size)} sent
-              </p>
+              <div className="status-pill status-pill--connected" style={{ alignSelf: 'flex-start' }}>
+                <span className="dot" />
+                <span>COMPLETE · {formatSize(transfer.size)}</span>
+              </div>
+              {transfer.savedPath && (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--label-tertiary)', wordBreak: 'break-all' }}>
+                  {transfer.savedPath}
+                </p>
+              )}
               <button className="btn-secondary" onClick={() => setTransfer(null)} style={{ fontSize: 11 }}>
                 SEND ANOTHER
               </button>
@@ -204,18 +210,6 @@ export default function FileTransferPage() {
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--system-red)', textAlign: 'center' }}>
           ERR: {err}
         </p>
-      )}
-
-      {/* Receive hint */}
-      {!transfer && (
-        <div style={{ padding: '10px 0' }}>
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
-            textTransform: 'uppercase', color: 'var(--label-quaternary)', textAlign: 'center',
-          }}>
-            Incoming files appear as a notification
-          </p>
-        </div>
       )}
     </div>
   )
