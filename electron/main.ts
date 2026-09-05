@@ -165,25 +165,18 @@ app.whenReady().then(async () => {
     : `file://${path.join(__dirname, '../../renderer/out/index.html')}`
   win.loadURL(url)
 
-  // Hook into webContents.send to capture call:connected and emit call:ended with timing
-  const origSend = win.webContents.send.bind(win.webContents)
-  win.webContents.send = (channel: string, ...args: unknown[]) => {
-    if (channel === 'call:connected') {
-      const info = args[0] as { direction: string; onionAddr?: string } | undefined
-      sessionState.callStartMs = Date.now()
-      sessionState.callId = Math.random().toString(16).slice(2)
-      if (info?.onionAddr && !sessionState.callPeer) {
-        sessionState.callPeer = info.onionAddr
-      }
-    }
-    return origSend(channel, ...args)
-  }
-
   // Register call IPC handlers — pass hooks to clear stale session state on each call
   registerCallIpcHandlers(win, {
     onInitiate: () => {
       sessionState.calleeMeta = null  // clear stale callee; populated by starknet:lookup for handle calls
       // viewingKey belongs to the sender's identity, not the call session — do not reset here
+    },
+    onConnected: (info) => {
+      sessionState.callStartMs = Date.now()
+      sessionState.callId = Math.random().toString(16).slice(2)
+      if (info.onionAddr && !sessionState.callPeer) {
+        sessionState.callPeer = info.onionAddr
+      }
     },
     onHangUp: () => {
       // Emit call:ended before clearing state

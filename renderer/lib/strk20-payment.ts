@@ -178,7 +178,9 @@ export async function sendShieldedPayment(
     const approvalReceipt = await provider.getTransactionReceipt(approveTx.transaction_hash) as any
     const approvalBlock: number = approvalReceipt.block_number ?? 0
     let latestBlock = await provider.getBlockNumber()
+    let waitIter = 0
     while (latestBlock - 10 <= approvalBlock) {
+      if (waitIter++ > 60) throw new Error('Timed out waiting for approval block to finalize (5 min)')
       await new Promise(r => setTimeout(r, 5000))
       latestBlock = await provider.getBlockNumber()
     }

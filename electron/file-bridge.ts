@@ -248,13 +248,16 @@ async function runReceiver(
     return
   }
 
-  // Reassemble in order; error loudly on gaps rather than silently truncating
+  // Reassemble in order; error loudly on gaps rather than silently truncating.
+  // Use max key + 1 as upper bound — chunks.size gives the wrong answer when sender
+  // indices are non-contiguous (e.g. [0,1,3] has size=3 but max index=3, not 2).
+  const maxIdx = chunks.size > 0 ? Math.max(...chunks.keys()) + 1 : 0
   const assembled = Buffer.alloc(bytesReceived)
   let offset = 0
-  for (let i = 0; i < chunks.size; i++) {
+  for (let i = 0; i < maxIdx; i++) {
     const chunk = chunks.get(i)
     if (!chunk) {
-      win.webContents.send('file:error', { transferId, message: `Missing chunk ${i} of ${chunks.size}` })
+      win.webContents.send('file:error', { transferId, message: `Missing chunk ${i} of ${maxIdx}` })
       clearActive(transferId)
       dmx.close()
       return

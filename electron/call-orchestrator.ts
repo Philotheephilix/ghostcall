@@ -54,6 +54,7 @@ export async function goOnline(): Promise<string> {
 export function startInboundListener(
   noiseStaticPriv: Uint8Array,
   win: BrowserWindow,
+  hooks: CallIpcHooks = {},
 ): Promise<void> {
   // Already listening — port is bound, nothing to do. The noiseStaticPriv for
   // the active listener is intentionally kept; re-keying mid-session would race
@@ -77,6 +78,7 @@ export function startInboundListener(
       const transport = await NoiseSession.handshakeResponder(socket, noiseStaticPriv)
       setActiveTransport(transport, win.webContents)
       activeCall = { direction: 'inbound' }
+      hooks.onConnected?.({ direction: 'inbound' })
       win.webContents.send('call:connected', { direction: 'inbound' })
     } catch (err) {
       connectionPending = false
@@ -97,6 +99,7 @@ export async function initiateCall(
   onionAddr: string,
   noiseStaticPriv: Uint8Array,
   win: BrowserWindow,
+  hooks: CallIpcHooks = {},
 ): Promise<void> {
   const socks = torManager.getSocksProxy()
   const socket = await connectToOnion(onionAddr, socks)
@@ -105,6 +108,7 @@ export async function initiateCall(
     const transport = await NoiseSession.handshakeInitiator(socket, noiseStaticPriv)
     setActiveTransport(transport, win.webContents)
     activeCall = { direction: 'outbound', onionAddr }
+    hooks.onConnected?.({ direction: 'outbound', onionAddr })
     win.webContents.send('call:connected', { direction: 'outbound', onionAddr })
   } catch (err) {
     socket.destroy()
@@ -137,6 +141,8 @@ export interface CallIpcHooks {
   onInitiate?: () => void
   /** Called at the start of call:hang-up — use to clear stale session state */
   onHangUp?: () => void
+  /** Called when call:connected is emitted — use to start timing */
+  onConnected?: (info: { direction: string; onionAddr?: string }) => void
 }
 
 /**
@@ -159,7 +165,7 @@ export function registerCallIpcHandlers(win: BrowserWindow, hooks: CallIpcHooks 
       // circuit), the callee could dial back before listen() has bound — causing
       // ECONNREFUSED through Tor and no audio. The handshake and audio wiring
       // still happen asynchronously inside the connection callback.
-      await startInboundListener(noiseKeys.secretKey, win)
+      await startInboundListener(noiseKeys.secretKey, win, hooks)
       return { onionAddr: addr }
     } catch (err) {
       throw new Error(`goOnline failed: ${err}`)
@@ -174,7 +180,7 @@ export function registerCallIpcHandlers(win: BrowserWindow, hooks: CallIpcHooks 
       throw new Error(`Invalid onion address format: ${onionAddr}`)
     }
     const noiseKeys = noiseKeygen()
-    await initiateCall(onionAddr, noiseKeys.secretKey, win)
+    await initiateCall(onionAddr, noiseKeys.secretKey, win, hooks)
     return { ok: true }
   })
 

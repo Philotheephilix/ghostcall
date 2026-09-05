@@ -50,7 +50,8 @@ export default function Home() {
       if (seenOffers.current.has(payload.callId)) return
       seenOffers.current.add(payload.callId)
       if (seenOffers.current.size > 500) {
-        seenOffers.current.delete(seenOffers.current.values().next().value!)
+        const oldest = seenOffers.current.values().next().value
+        if (oldest !== undefined) seenOffers.current.delete(oldest)
       }
 
       if (payload.type === 'file') {

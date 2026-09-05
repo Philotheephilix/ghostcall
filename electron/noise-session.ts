@@ -106,7 +106,7 @@ class CipherState {
 class SymmetricState {
   private cs = new CipherState()
   private ck: Uint8Array
-  public h: Uint8Array
+  private h: Uint8Array
 
   constructor() {
     const name = new TextEncoder().encode(PROTOCOL_NAME)
@@ -150,13 +150,15 @@ class SymmetricState {
 
 class SocketReader {
   private buf = Buffer.alloc(0)
-  private waiters: Array<{ len: number; resolve: (b: Buffer) => void }> = []
+  private waiters: Array<{ len: number; resolve: (b: Buffer) => void; reject: (e: Error) => void }> = []
 
   constructor(socket: net.Socket) {
     socket.on('data', (chunk: Buffer) => {
       this.buf = Buffer.concat([this.buf, chunk])
       this._drain()
     })
+    socket.on('error', (err) => this._rejectAll(err))
+    socket.on('close', () => this._rejectAll(new Error('Socket closed')))
   }
 
   private _drain() {
@@ -167,9 +169,14 @@ class SocketReader {
     }
   }
 
+  private _rejectAll(err: Error) {
+    const pending = this.waiters.splice(0)
+    for (const { reject } of pending) reject(err)
+  }
+
   readExact(len: number): Promise<Buffer> {
-    return new Promise(resolve => {
-      this.waiters.push({ len, resolve })
+    return new Promise((resolve, reject) => {
+      this.waiters.push({ len, resolve, reject })
       this._drain()
     })
   }

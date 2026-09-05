@@ -20,7 +20,11 @@ async function fetchBalance(addr: string): Promise<string> {
   if (!data.result) throw new Error('No result')
   const low = BigInt(data.result[0])
   const high = BigInt(data.result[1] ?? '0x0')
-  return (Number(low + (high << 128n)) / 1e18).toFixed(4)
+  const raw = low + (high << 128n)
+  // Divide with BigInt to avoid precision loss on balances > 9000 STRK.
+  const whole = raw / BigInt(1e18)
+  const frac = Number(raw % BigInt(1e18)) / 1e18
+  return (Number(whole) + frac).toFixed(4)
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {

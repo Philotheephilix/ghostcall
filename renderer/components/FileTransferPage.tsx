@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { formatSize } from '../lib/format-utils'
 
 type TransferStatus = 'idle' | 'waiting' | 'transferring' | 'done' | 'error'
@@ -27,9 +27,13 @@ export default function FileTransferPage() {
   const [handle, setHandle] = useState('')
   const [transfer, setTransfer] = useState<TransferState | null>(null)
   const [err, setErr] = useState('')
-  const gc = (window as any).ghostcall
+  // Accessed only after mount — window is always defined here, but using a ref
+  // avoids the access at module-level render time which breaks SSR/static export.
+  const gcRef = useRef<any>(null)
 
   useEffect(() => {
+    gcRef.current = (window as any).ghostcall
+    const gc = gcRef.current
     if (!gc) return
     const cleanups: Array<() => void> = []
     const c1 = gc.onFileProgress?.((data: { transferId: string; bytesSent?: number; bytesReceived?: number; total: number }) => {
@@ -53,6 +57,7 @@ export default function FileTransferPage() {
   }, [])
 
   async function pickAndSend() {
+    const gc = gcRef.current
     if (!gc) return
     setErr('')
     try {
@@ -82,6 +87,7 @@ export default function FileTransferPage() {
   }
 
   async function cancel() {
+    const gc = gcRef.current
     if (!gc) return
     await gc.cancelFileTransfer?.()
     await gc.fileHangUp?.()

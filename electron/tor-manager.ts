@@ -59,8 +59,8 @@ export class TorManager {
       })
       this.proc.on('exit', (code) => {
         this._running = false
+        clearTimeout(timer)
         if (code !== 0) {
-          clearTimeout(timer)
           reject(new Error(`Tor exited with code ${code}`))
         }
       })

@@ -12,8 +12,8 @@ const WORDS = [
 
 test('renders 12 numbered word cells', () => {
   render(<SeedGrid words={WORDS} />)
-  // Number labels 1–12 should be visible
-  expect(screen.getByText('1')).toBeInTheDocument()
+  // Number labels 01–12 should be visible (zero-padded to 2 digits)
+  expect(screen.getByText('01')).toBeInTheDocument()
   expect(screen.getByText('12')).toBeInTheDocument()
 })
 

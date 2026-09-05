@@ -3,7 +3,14 @@ import * as nip59 from 'nostr-tools/nip59'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bigintToBytes32 } from './stealth-keys'
-import WebSocket from 'ws'
+// This file is imported by both the electron main process (Node.js, uses `ws`)
+// and the renderer (browser/Electron renderer, uses native WebSocket).
+// Detect the environment at runtime to avoid bundling the Node-only `ws` package
+// into the renderer bundle.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const WS: new (url: string) => any = typeof window === 'undefined'
+  ? require('ws')
+  : (globalThis as any).WebSocket
 // secp256k1 curve order — used to normalize private key scalars into valid range
 const SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n
 
@@ -121,7 +128,7 @@ export function publishToRelay(relayUrl: string, eventJson: string): Promise<voi
       }
     }
 
-    const ws = new WebSocket(relayUrl)
+    const ws = new WS(relayUrl)
     const timer = setTimeout(() => {
       ws.close()
       settle(() => reject(new Error('relay publish timeout')))
@@ -158,7 +165,7 @@ export function subscribeIncoming(
   myPubHex: string,
   onMessage: (raw: string) => void,
 ): () => void {
-  const ws = new WebSocket(relayUrl)
+  const ws = new WS(relayUrl)
   const subId = Math.random().toString(36).slice(2, 10)
 
   ws.on('open', () => {
