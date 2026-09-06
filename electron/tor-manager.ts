@@ -4,10 +4,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 
-const TOR_DATA_DIR = path.join(os.homedir(), '.ghostcall-tor')
+const TOR_DATA_DIR = process.env.TOR_DATA_DIR ?? path.join(os.homedir(), '.ghostcall-tor')
 const SOCKS_HOST = '127.0.0.1'
-const SOCKS_PORT = 9050
-const CONTROL_PORT = 9051
+const SOCKS_PORT = process.env.TOR_SOCKS_PORT ? parseInt(process.env.TOR_SOCKS_PORT, 10) : 9050
+const CONTROL_PORT = process.env.TOR_CONTROL_PORT ? parseInt(process.env.TOR_CONTROL_PORT, 10) : 9051
 const ONION_FORWARD_PORT = 7331
 
 export class TorManager {

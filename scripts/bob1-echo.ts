@@ -35,18 +35,12 @@ import { NoiseSession, noiseKeygen } from '../electron/noise-session'
 
 dotenv.config({ path: '.env' })
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const OpusScript = require('opusscript')
-
 const OZ_ACCOUNT_CLASS_HASH = '0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f'
-const HANDLE = 'bob1'
+const HANDLE = 'echo'
 const KEY_FILE = path.join(__dirname, '.bob1-key')
 const NOSTR_RELAY = process.env.NOSTR_RELAY_URL ?? 'wss://relay.primal.net'
 const RPC = process.env.STARKNET_RPC_URL!
 const ONION_PORT = 7331
-const SAMPLE_RATE = 16000
-const FRAME_SIZE = 320
-const CHANNELS = 1
 // STRK to send bob1 for gas (deploy account + register). Sepolia deploy-account
 // fee estimates run ~0.14 STRK; 0.3 leaves comfortable headroom for register too.
 const FUND_AMOUNT = 300_000_000_000_000_000n // 0.3 * 10^18
@@ -83,18 +77,15 @@ function loadOrCreateBobKey(): string {
 // ── WAV-less Opus echo transport helper reused from bob-receive-dump ─────────
 
 async function runEchoResponder(onionServer: OnionServer, onDone: () => void) {
-  const decoder = new OpusScript(SAMPLE_RATE, CHANNELS)
-  const encoder = new OpusScript(SAMPLE_RATE, CHANNELS, OpusScript.Application.VOIP)
   onionServer.listen(ONION_PORT, async (socket) => {
     console.log('[bob1] inbound connection — Noise_XX responder handshake...')
     const keys = noiseKeygen()
     try {
       const transport = await NoiseSession.handshakeResponder(socket, keys.secretKey)
-      console.log('[bob1] connected (inbound) — echoing audio')
+      console.log('[bob1] connected (inbound) — echoing raw PCM')
       let n = 0
-      for await (const opusFrame of transport.recv) {
-        const pcm: Buffer = decoder.decode(opusFrame)
-        try { transport.send(encoder.encode(pcm, FRAME_SIZE)) } catch { /* echo err */ }
+      for await (const frame of transport.recv) {
+        try { transport.send(frame) } catch { /* echo err */ }
         if (++n % 25 === 0) process.stdout.write('.')
       }
       console.log(`\n[bob1] inbound call ended (${n} frames echoed)`)
@@ -107,18 +98,15 @@ async function runEchoResponder(onionServer: OnionServer, onDone: () => void) {
 
 async function dialBackAndEcho(torManager: TorManager, callerOnion: string) {
   console.log('[bob1] dialing back caller onion:', callerOnion)
-  const decoder = new OpusScript(SAMPLE_RATE, CHANNELS)
-  const encoder = new OpusScript(SAMPLE_RATE, CHANNELS, OpusScript.Application.VOIP)
   const socks = torManager.getSocksProxy()
   const socket = await connectToOnion(callerOnion, socks)
   console.log('[bob1] TCP connected through Tor — Noise_XX initiator handshake...')
   const keys = noiseKeygen()
   const transport = await NoiseSession.handshakeInitiator(socket, keys.secretKey)
-  console.log('[bob1] connected (dial-back) — echoing audio')
+  console.log('[bob1] connected (dial-back) — echoing raw PCM')
   let n = 0
-  for await (const opusFrame of transport.recv) {
-    const pcm: Buffer = decoder.decode(opusFrame)
-    try { transport.send(encoder.encode(pcm, FRAME_SIZE)) } catch { /* echo err */ }
+  for await (const frame of transport.recv) {
+    try { transport.send(frame) } catch { /* echo err */ }
     if (++n % 25 === 0) process.stdout.write('.')
   }
   console.log(`\n[bob1] dial-back call ended (${n} frames echoed)`)
@@ -170,7 +158,8 @@ async function setup(bobPrivHex: string) {
 
 async function serve(bobPrivHex: string) {
   const bobPriv = BigInt('0x' + bobPrivHex)
-  const { pk: myNostrPk } = stealthToNostrKeypair(deriveStealthKeypairFromPrivKey(bobPriv).skV)
+  const bobKp = deriveStealthKeypairFromPrivKey(bobPriv)
+  const { pk: myNostrPk } = stealthToNostrKeypair(bobKp.skV)
   console.log('[bob1] nostr pubkey (subscribe filter):', myNostrPk)
 
   const torManager = new TorManager()
@@ -191,7 +180,7 @@ async function serve(bobPrivHex: string) {
   // Subscribe for gift-wrapped offers addressed to our full Nostr pubkey.
   console.log('[bob1] subscribing to relay:', NOSTR_RELAY)
   subscribeIncoming(NOSTR_RELAY, myNostrPk, async (raw: string) => {
-    const payload = await parseCallOffer(raw, bobPriv)
+    const payload = await parseCallOffer(raw, bobKp.skV)
     if (!payload?.onionAddr || !payload.callId) return
     if (seen.has(payload.callId)) return
     seen.add(payload.callId)

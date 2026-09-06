@@ -88,8 +88,27 @@ export default function Home() {
     if (!callTarget.trim()) return
     const gc = (window as any).ghostcall
     try {
-      await gc?.initiateCall?.(callTarget.trim())
-      window.location.href = '/call'
+      if (inputMode === 'ONION') {
+        await gc?.initiateCall?.(callTarget.trim())
+        window.location.href = '/call'
+      } else {
+        // Handle mode: look up the callee on-chain, send a Nostr signal so they
+        // dial back to our onion. onCallConnected fires when they connect.
+        setStatusMsg('Looking up handle…')
+        const meta = await gc?.lookupStealth?.(callTarget.trim())
+        if (!meta?.nostrPubkey) throw new Error('Handle not found on-chain')
+        const myOnion = onionAddr
+        if (!myOnion) throw new Error('Go online first — no onion address')
+        const callId = Math.random().toString(16).slice(2)
+        const offer = await gc?.buildCallOffer?.(
+          { onionAddr: myOnion, callId, callerNoisePubkey: '' },
+          { nostrPubkey: meta.nostrPubkey, pkVx: meta.pkVx, pkVy: meta.pkVy },
+        )
+        if (!offer) throw new Error('Failed to build call offer')
+        await gc?.publishSignal?.(offer)
+        setStatusMsg('Signal sent — waiting for dial-back…')
+        // onCallConnected (wired above) will redirect to /call when they connect
+      }
     } catch (e) {
       setStatusMsg((e as Error).message)
     }

@@ -25,8 +25,8 @@ let _account: Account | undefined
 // l1_gas is 0. Tip 1 Gwei. Values set 10× above observed block prices.
 const SEPOLIA_RESOURCE_BOUNDS: ResourceBoundsBN = {
   l1_gas: { max_amount: 0n, max_price_per_unit: 0x10000000000000n },
-  l2_gas: { max_amount: 0x800000n, max_price_per_unit: 0x1000000000n }, // 8M — actual ~4.5M for register
-  l1_data_gas: { max_amount: 0x1000n, max_price_per_unit: 0x10000000000n },
+  l2_gas: { max_amount: 0x800000n, max_price_per_unit: 0xE00000000n }, // 8M × ~60 Gwei = ~0.50 STRK max (2× current Sepolia price)
+  l1_data_gas: { max_amount: 0x1000n, max_price_per_unit: 0x10000000000n }, // 4K × 68 Gwei = ~0.00028 STRK max
 }
 const SEPOLIA_TIP = 100_000_000_000n // 100 Gwei tip — needed to survive Sepolia mempool TTL
 
