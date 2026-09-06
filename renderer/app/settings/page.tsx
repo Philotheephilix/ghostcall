@@ -21,7 +21,6 @@ async function fetchBalance(addr: string): Promise<string> {
   const low = BigInt(data.result[0])
   const high = BigInt(data.result[1] ?? '0x0')
   const raw = low + (high << 128n)
-  // Divide with BigInt to avoid precision loss on balances > 9000 STRK.
   const whole = raw / BigInt(1e18)
   const frac = Number(raw % BigInt(1e18)) / 1e18
   return (Number(whole) + frac).toFixed(4)
@@ -29,8 +28,8 @@ async function fetchBalance(addr: string): Promise<string> {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="list-row" style={{ padding: '13px 16px', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span className="label-tag">{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderBottom: '1px solid rgba(17,17,17,0.07)' }}>
+      <span className="label-tag" style={{ color: 'var(--label-tertiary)' }}>{label}</span>
       {children}
     </div>
   )
@@ -39,10 +38,19 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <span className="label-tag" style={{ display: 'block', marginBottom: 8 }}>{label}</span>
-      <div className="card-white" style={{ padding: 0, overflow: 'hidden' }}>
+      <span className="label-tag" style={{ display: 'block', marginBottom: 8, color: 'var(--label-tertiary)' }}>{label}</span>
+      <div style={{ background: '#fff', borderRadius: 'var(--radius-card)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
         {children}
       </div>
+    </div>
+  )
+}
+
+function RowLast({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
+      <span className="label-tag" style={{ color: 'var(--label-tertiary)' }}>{label}</span>
+      {children}
     </div>
   )
 }
@@ -57,14 +65,14 @@ export default function Settings() {
     const s = loadState()
     if (s.onboardingDone) { setState(s); return }
     const cleanup = onIdentityReady((data) => {
-      if (data.source) { setState(saveState({ onboardingDone: true })) }
-      else { window.location.replace('/onboarding') }
+      if (data.source) setState(saveState({ onboardingDone: true }))
+      else window.location.replace('/onboarding')
     })
     return cleanup
   }, [])
 
   const accountAddr = (state?.walletAddress && state?.walletAddress !== 'dev-mode')
-    ? state?.walletAddress
+    ? state.walletAddress
     : '0x52b6665bf24e43e5a612417f43ceaf120186d091f5d2fcb3782bf2d672ad13f'
 
   async function checkBalance() {
@@ -81,163 +89,114 @@ export default function Settings() {
   const torOk = torStatus?.running === true
 
   return (
-    <main className="theme-apricot page-enter" style={{
-      minHeight: '100vh',
-      padding: '0 20px 64px',
-      maxWidth: 420,
-      margin: '0 auto',
-      boxSizing: 'border-box',
-      display: 'flex',
-      flexDirection: 'column',
+    <main style={{
+      minHeight: '100vh', background: 'var(--bg-apricot)',
+      padding: '0 20px 80px', maxWidth: 420, margin: '0 auto',
+      boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
+      fontFamily: 'var(--font-family)',
     }}>
+
       {/* Header */}
-      <div style={{
-        paddingTop: 48,
-        paddingBottom: 24,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
+      <div style={{ paddingTop: 52, paddingBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button
           onClick={() => window.location.href = '/home'}
-          className="btn-pill-outline"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 13,
-            fontWeight: 600,
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'none', border: '2px solid #111', borderRadius: 'var(--radius-pill)',
+            padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#111',
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 5l-7 7 7 7"/>
           </svg>
           Back
         </button>
-        <h1 className="hero-title" style={{ fontSize: 28 }}>Settings</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--label-primary)', margin: 0 }}>Settings</h1>
       </div>
 
-      {/* Identity section */}
+      {/* Identity */}
       <Section label="Identity">
         <Row label="Handle">
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--label-primary)' }}>
             {state?.handle ? `@${state.handle}` : '—'}
           </span>
         </Row>
         <Row label="Source">
-          <span style={{ fontSize: 12, color: '#5a5a5a', fontWeight: 600 }}>
-            {state?.identitySource === 'seed' ? 'Seed Phrase'
-             : state?.identitySource === 'zkey' ? 'ZKey (ZK Login)'
-             : '—'}
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-secondary)' }}>
+            {state?.identitySource === 'seed' ? 'Seed Phrase' : state?.identitySource === 'zkey' ? 'ZK Login' : '—'}
           </span>
         </Row>
         <Row label="Starknet">
-          <span style={{
-            fontSize: 12,
-            color: state?.registered ? '#16a34a' : '#5a5a5a',
-            fontWeight: 600,
-          }}>
-            {state?.registered ? 'Registered' : 'Not Registered'}
+          <span style={{ fontSize: 12, fontWeight: 600, color: state?.registered ? '#16a34a' : 'var(--label-tertiary)' }}>
+            {state?.registered ? 'Registered ✓' : 'Not Registered'}
           </span>
         </Row>
         {state?.registrationTx && (
           <Row label="Reg TX">
-            <span style={{ fontSize: 11, color: '#5a5a5a', fontFamily: 'monospace' }}>
+            <span style={{ fontSize: 11, color: 'var(--label-tertiary)', fontFamily: 'var(--font-mono)' }}>
               {state.registrationTx.slice(0, 10)}…{state.registrationTx.slice(-6)}
             </span>
           </Row>
         )}
         <div style={{ padding: '12px 16px' }}>
-          <span className="label-tag" style={{ display: 'block', marginBottom: 6 }}>Address (Sepolia)</span>
-          <span style={{ fontSize: 11, color: '#2d2d2d', wordBreak: 'break-all', lineHeight: 1.5, fontFamily: 'monospace' }}>
+          <span className="label-tag" style={{ display: 'block', marginBottom: 5, color: 'var(--label-quaternary)' }}>Address</span>
+          <span style={{ fontSize: 10, color: 'var(--label-secondary)', wordBreak: 'break-all', lineHeight: 1.6, fontFamily: 'var(--font-mono)' }}>
             {accountAddr}
           </span>
         </div>
       </Section>
 
-      {/* Account section */}
+      {/* Account */}
       <Section label="Account">
-        <Row label="STRK Balance">
+        <RowLast label="STRK Balance">
           <button
             onClick={checkBalance}
             style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: 700,
-              color: balance !== null ? '#111' : '#5a5a5a',
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700,
+              color: balance !== null ? 'var(--label-primary)' : 'var(--label-tertiary)',
             }}
           >
             {balance !== null ? `${balance} STRK` : 'Check →'}
           </button>
-        </Row>
+        </RowLast>
       </Section>
 
-      {/* Network section */}
+      {/* Network */}
       <Section label="Network">
         <Row label="Tor">
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: torOk ? 'rgba(34,197,94,0.12)' : 'rgba(230,57,70,0.1)',
-            borderRadius: 999,
-            padding: '4px 10px',
-            fontSize: 11,
-            fontWeight: 700,
-            color: torOk ? '#16a34a' : '#e63946',
+            display: 'flex', alignItems: 'center', gap: 5,
+            background: torOk ? 'rgba(34,197,94,0.12)' : 'rgba(230,57,70,0.10)',
+            borderRadius: 'var(--radius-pill)', padding: '4px 10px',
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+            color: torOk ? '#16a34a' : 'var(--system-red)',
           }}>
-            <span style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: torOk ? '#22c55e' : '#e63946',
-            }} />
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: torOk ? '#22c55e' : 'var(--system-red)' }} />
             {torOk ? 'Connected' : 'Unavailable'}
           </div>
         </Row>
-        <Row label="Starknet">
-          <span style={{ fontSize: 12, color: '#5a5a5a', fontWeight: 500 }}>Sepolia</span>
+        <Row label="Network">
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-tertiary)' }}>Sepolia</span>
         </Row>
-        <Row label="RPC">
-          <span style={{
-            fontSize: 11,
-            color: '#5a5a5a',
-            maxWidth: 180,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontFamily: 'monospace',
-          }}>
-            {RPC_URL ? RPC_URL.replace('https://', '').slice(0, 32) + '…' : '—'}
+        <RowLast label="RPC">
+          <span style={{ fontSize: 10, color: 'var(--label-quaternary)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+            {RPC_URL ? RPC_URL.replace('https://', '').slice(0, 30) + '…' : '—'}
           </span>
-        </Row>
+        </RowLast>
       </Section>
 
-      {/* About section */}
+      {/* About */}
       <Section label="About">
         <Row label="Version">
-          <span style={{ fontSize: 12, color: '#5a5a5a' }}>1.0.0-sepolia</span>
+          <span style={{ fontSize: 12, color: 'var(--label-tertiary)' }}>1.0.0-sepolia</span>
         </Row>
-        <Row label="License">
-          <span style={{ fontSize: 12, color: '#5a5a5a' }}>Apache-2.0</span>
-        </Row>
-        <Row label="Source">
-          <a
-            href="https://github.com/Philotheephilix/ghostcall"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: 12,
-              color: '#111',
-              textDecoration: 'none',
-              fontWeight: 700,
-            }}
-          >
+        <RowLast label="Source">
+          <a href="https://github.com/Philotheephilix/ghostcall" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 12, color: 'var(--label-primary)', textDecoration: 'none', fontWeight: 700 }}>
             GitHub ↗
           </a>
-        </Row>
+        </RowLast>
       </Section>
 
       {/* Danger zone */}
@@ -249,41 +208,25 @@ export default function Settings() {
         >
           Reset Identity
         </button>
-        <p style={{
-          fontSize: 11,
-          color: '#5a5a5a',
-          marginTop: 8,
-        }}>
+        <p style={{ fontSize: 11, color: 'var(--label-quaternary)', marginTop: 8 }}>
           Deletes saved keys. Re-registration required.
         </p>
       </div>
 
+      {/* Reset confirm modal */}
       {showResetConfirm && (
-        <div
-          className="in-page-modal-overlay"
-          onClick={() => setShowResetConfirm(false)}
-        >
-          <div className="card-white in-page-modal" onClick={e => e.stopPropagation()} style={{ padding: 24 }}>
-            <span className="label-tag" style={{ color: '#e63946', display: 'block', marginBottom: 10 }}>Reset Identity</span>
-            <p style={{ fontSize: 14, color: '#2d2d2d', lineHeight: 1.6, marginBottom: 20 }}>
-              This will permanently delete your saved identity keys. You will need to re-register on Starknet. Make sure you have your seed phrase backed up.
+        <div className="in-page-modal-overlay" onClick={() => setShowResetConfirm(false)}>
+          <div className="in-page-modal" onClick={e => e.stopPropagation()}>
+            <span className="label-tag" style={{ color: 'var(--system-red)' }}>Reset Identity</span>
+            <p style={{ fontSize: 14, color: 'var(--label-secondary)', lineHeight: 1.6 }}>
+              This will permanently delete your saved keys. You'll need to re-register on Starknet. Back up your seed phrase first.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button
-                className="btn-pill-danger"
-                style={{ width: '100%' }}
-                onClick={async () => {
-                  setShowResetConfirm(false)
-                  await resetOnboarding()
-                }}
-              >
+              <button className="btn-pill-danger" style={{ width: '100%' }}
+                onClick={async () => { setShowResetConfirm(false); await resetOnboarding() }}>
                 Delete Identity
               </button>
-              <button
-                className="btn-pill-outline"
-                style={{ width: '100%' }}
-                onClick={() => setShowResetConfirm(false)}
-              >
+              <button className="btn btn-pill-outline" style={{ width: '100%' }} onClick={() => setShowResetConfirm(false)}>
                 Cancel
               </button>
             </div>
