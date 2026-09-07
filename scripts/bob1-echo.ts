@@ -40,7 +40,7 @@ const HANDLE = 'echo'
 const KEY_FILE = path.join(__dirname, '.bob1-key')
 const NOSTR_RELAY = process.env.NOSTR_RELAY_URL ?? 'wss://relay.primal.net'
 const RPC = process.env.STARKNET_RPC_URL!
-const ONION_PORT = 7331
+const ONION_PORT = process.env.ECHO_ONION_PORT ? parseInt(process.env.ECHO_ONION_PORT, 10) : 7332
 // STRK to send bob1 for gas (deploy account + register). Sepolia deploy-account
 // fee estimates run ~0.14 STRK; 0.3 leaves comfortable headroom for register too.
 const FUND_AMOUNT = 300_000_000_000_000_000n // 0.3 * 10^18

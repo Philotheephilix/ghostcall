@@ -20,8 +20,13 @@ export class TorManager {
   async start(): Promise<void> {
     if (this._running) return
 
-    // Never attach to an external/system Tor — always spawn our own with the
-    // required control port and cookie auth so ADD_ONION works reliably.
+    // If Tor is already listening on the socks+control ports (e.g. the Electron
+    // app already started it), skip spawning and mark ourselves as running so
+    // addOnion / getSocksProxy work against the existing instance.
+    if (await this._portsInUse()) {
+      this._running = true
+      return
+    }
 
     const torBin = process.env.TOR_BINARY_PATH || this._findTorBinary()
 
@@ -64,6 +69,17 @@ export class TorManager {
           reject(new Error(`Tor exited with code ${code}`))
         }
       })
+    })
+  }
+
+  private _portsInUse(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const sock = net.connect(CONTROL_PORT, SOCKS_HOST, () => {
+        sock.destroy()
+        resolve(true)
+      })
+      sock.on('error', () => resolve(false))
+      sock.setTimeout(500, () => { sock.destroy(); resolve(false) })
     })
   }
 
