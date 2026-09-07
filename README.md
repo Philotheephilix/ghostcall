@@ -66,8 +66,6 @@ PAYMENT
   <img src="screenshots/call.png" width="220" alt="Call"/>
   &nbsp;&nbsp;
   <img src="screenshots/onboarding.png" width="220" alt="Onboarding"/>
-  &nbsp;&nbsp;
-  <img src="screenshots/settings.png" width="220" alt="Settings"/>
 </p>
 
 ## Download
