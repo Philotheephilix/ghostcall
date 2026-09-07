@@ -49,7 +49,7 @@ PAYMENT
 
 | | Address |
 |---|---|
-| **CallLog** | [`0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa`](https://starkscan.co/contract/0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa) |
+| **CallLog** | [`0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa`](https://starkscan.co/contract/0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa?tab=events) |
 | **STRK20 pool** | [`0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a`](https://starkscan.co/contract/0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a) |
 
 **Signalling:** caller looks up callee's ERC-5564 stealth keypair on StealthRegistry, derives a one-time Nostr pubkey, sends a NIP-59 gift-wrapped call offer with the caller's onion address. Callee decrypts, dials back through Tor. No phone number. No account. No server.
