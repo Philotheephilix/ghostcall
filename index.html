@@ -308,6 +308,17 @@
     transition: background .2s, gap .25s;
   }
   .btn:hover { background: var(--accent2); gap: 22px; }
+  .btn-dl {
+    display: inline-flex; align-items: center; gap: 14px;
+    text-decoration: none;
+    font-size: 12px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink);
+    background: var(--accent); padding: 16px 30px;
+    border-radius: 2px;
+    transition: background .2s, gap .25s;
+    margin-left: 16px;
+  }
+  .btn-dl:hover { background: #b0e800; gap: 22px; }
   .bg-letters {
     position: absolute; right: -20px; bottom: -80px;
     font-family: var(--f-serif);
@@ -936,6 +947,12 @@
     View on GitHub
     <svg width="18" height="10" viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="1.5">
       <path d="M0 5h16M12 1l5 4-5 4"/>
+    </svg>
+  </a>
+  <a class="btn-dl" href="https://github.com/Philotheephilix/ghostcall/releases/latest/download/GhostCall-arm64.dmg" download>
+    Download for Mac
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
     </svg>
   </a>
   <span class="bg-letters" aria-hidden="true">GC</span>
