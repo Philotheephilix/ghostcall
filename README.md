@@ -49,10 +49,8 @@ PAYMENT
 
 | | Address |
 |---|---|
-| **CallLog (mainnet)** | [`0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa`](https://starkscan.co/contract/0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa) |
+| **CallLog** | [`0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa`](https://starkscan.co/contract/0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa) |
 | **STRK20 pool** | [`0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a`](https://starkscan.co/contract/0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a) |
-| **StealthRegistry (Sepolia)** | [`0x2da2d2c2b3621a2579bc9d0d0d458e600998966c45c87d9d74039b1120fa801`](https://sepolia.starkscan.co/contract/0x2da2d2c2b3621a2579bc9d0d0d458e600998966c45c87d9d74039b1120fa801) |
-| **CallLog (Sepolia)** | [`0x1155ab697ef598a626905713a580123e720625e2de2ffb3a52cc88e4a2ab984`](https://sepolia.starkscan.co/contract/0x1155ab697ef598a626905713a580123e720625e2de2ffb3a52cc88e4a2ab984) |
 
 **Signalling:** caller looks up callee's ERC-5564 stealth keypair on StealthRegistry, derives a one-time Nostr pubkey, sends a NIP-59 gift-wrapped call offer with the caller's onion address. Callee decrypts, dials back through Tor. No phone number. No account. No server.
 
