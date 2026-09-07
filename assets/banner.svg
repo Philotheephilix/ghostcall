@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="200" viewBox="0 0 900 200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fedfcb"/>
+      <stop offset="50%" style="stop-color:#f7d5d2"/>
+      <stop offset="100%" style="stop-color:#eaf8d1"/>
+    </linearGradient>
+    <linearGradient id="pill1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#111111"/>
+      <stop offset="100%" style="stop-color:#333333"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="200" fill="url(#bg)" rx="16"/>
+
+  <!-- Dot grid top-right -->
+  <g opacity="0.18">
+    <circle cx="720" cy="28" r="3" fill="#111"/>
+    <circle cx="744" cy="28" r="3" fill="#111"/>
+    <circle cx="768" cy="28" r="3" fill="#111"/>
+    <circle cx="792" cy="28" r="3" fill="#111"/>
+    <circle cx="816" cy="28" r="3" fill="#111"/>
+    <circle cx="840" cy="28" r="3" fill="#111"/>
+    <circle cx="864" cy="28" r="3" fill="#111"/>
+    <circle cx="720" cy="52" r="3" fill="#111"/>
+    <circle cx="744" cy="52" r="3" fill="#111"/>
+    <circle cx="768" cy="52" r="3" fill="#111"/>
+    <circle cx="792" cy="52" r="3" fill="#111"/>
+    <circle cx="816" cy="52" r="3" fill="#111"/>
+    <circle cx="840" cy="52" r="3" fill="#111"/>
+    <circle cx="864" cy="52" r="3" fill="#111"/>
+    <circle cx="720" cy="76" r="3" fill="#111"/>
+    <circle cx="744" cy="76" r="3" fill="#111"/>
+    <circle cx="768" cy="76" r="3" fill="#111"/>
+    <circle cx="792" cy="76" r="3" fill="#111"/>
+    <circle cx="816" cy="76" r="3" fill="#111"/>
+    <circle cx="840" cy="76" r="3" fill="#111"/>
+    <circle cx="864" cy="76" r="3" fill="#111"/>
+    <circle cx="720" cy="100" r="3" fill="#111"/>
+    <circle cx="744" cy="100" r="3" fill="#111"/>
+    <circle cx="768" cy="100" r="3" fill="#111"/>
+    <circle cx="792" cy="100" r="3" fill="#111"/>
+    <circle cx="816" cy="100" r="3" fill="#111"/>
+    <circle cx="840" cy="100" r="3" fill="#111"/>
+    <circle cx="864" cy="100" r="3" fill="#111"/>
+  </g>
+
+  <!-- GC badge -->
+  <rect x="40" y="36" width="44" height="28" rx="14" fill="#111"/>
+  <text x="62" y="56" font-family="monospace" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">GC</text>
+
+  <!-- Title -->
+  <text x="40" y="110" font-family="Georgia,serif" font-size="56" font-weight="700" fill="#111111" letter-spacing="-2">GhostCall</text>
+
+  <!-- Subtitle -->
+  <text x="40" y="140" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="15" fill="#5a5a5a">private voice calls · tor · noise_xx · erc-5564 stealth · strk20</text>
+
+  <!-- Pills row -->
+  <!-- Mainnet pill -->
+  <rect x="40" y="158" width="90" height="26" rx="13" fill="#111"/>
+  <text x="85" y="176" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11" font-weight="700" fill="#fedfcb" text-anchor="middle" letter-spacing="0.5">MAINNET</text>
+
+  <!-- Tor pill -->
+  <rect x="138" y="158" width="56" height="26" rx="13" fill="#7c3aed"/>
+  <text x="166" y="176" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="0.5">TOR V3</text>
+
+  <!-- STRK20 pill -->
+  <rect x="202" y="158" width="72" height="26" rx="13" fill="#0ea5e9"/>
+  <text x="238" y="176" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="0.5">STRK20</text>
+
+  <!-- Starknet pill -->
+  <rect x="282" y="158" width="84" height="26" rx="13" fill="#ec4899"/>
+  <text x="324" y="176" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="0.5">STARKNET</text>
+
+  <!-- Noise pill -->
+  <rect x="374" y="158" width="82" height="26" rx="13" fill="#22c55e"/>
+  <text x="415" y="176" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="0.5">NOISE_XX</text>
+
+  <!-- Top bar -->
+  <rect width="900" height="5" rx="0" fill="#111" opacity="0.85"/>
+</svg>

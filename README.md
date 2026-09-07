@@ -1,4 +1,15 @@
-# GhostCall
+<p align="center">
+  <img src="assets/banner.svg" alt="GhostCall" width="100%"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Philotheephilix/ghostcall/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/Download-Mac%20v0.1.0-black?style=flat-square" alt="Download"/></a>
+  <a href="https://youtu.be/j94K-o8q56Y"><img src="https://img.shields.io/badge/Demo-YouTube-red?style=flat-square&logo=youtube" alt="Demo"/></a>
+  <a href="https://starkscan.co/contract/0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa"><img src="https://img.shields.io/badge/Contract-Mainnet-ec4899?style=flat-square" alt="Contract"/></a>
+  <a href="https://philotheephilix.github.io/ghostcall"><img src="https://img.shields.io/badge/Landing-Page-fedfcb?style=flat-square&logoColor=black&color=111" alt="Landing"/></a>
+</p>
+
+---
 
 Private voice calls and file transfer over Tor — no relay, no metadata, no trace.
 
@@ -36,17 +47,28 @@ PAYMENT
 
 ## Starknet & STRK20
 
-**Mainnet**
-- CallLog: `0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa`
-- STRK20 pool: `0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a`
+| | Address |
+|---|---|
+| **CallLog (mainnet)** | [`0x474e...59fa`](https://starkscan.co/contract/0x474eafba0ef66427b796890bffc7d80fa9ec90359f649d85c1c54d50bd359fa) |
+| **STRK20 pool** | [`0x0403...12a`](https://starkscan.co/contract/0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a) |
+| **StealthRegistry (Sepolia)** | [`0x2da2...801`](https://sepolia.starkscan.co/contract/0x2da2d2c2b3621a2579bc9d0d0d458e600998966c45c87d9d74039b1120fa801) |
+| **CallLog (Sepolia)** | [`0x1155...984`](https://sepolia.starkscan.co/contract/0x1155ab697ef598a626905713a580123e720625e2de2ffb3a52cc88e4a2ab984) |
 
-**Sepolia**
-- StealthRegistry: `0x2da2d2c2b3621a2579bc9d0d0d458e600998966c45c87d9d74039b1120fa801`
-- CallLog: `0x1155ab697ef598a626905713a580123e720625e2de2ffb3a52cc88e4a2ab984`
+**Signalling:** caller looks up callee's ERC-5564 stealth keypair on StealthRegistry, derives a one-time Nostr pubkey, sends a NIP-59 gift-wrapped call offer with the caller's onion address. Callee decrypts, dials back through Tor. No phone number. No account. No server.
 
-**How signalling works:** caller looks up callee's ERC-5564 stealth keypair on StealthRegistry, derives a one-time Nostr pubkey, sends a NIP-59 gift-wrapped call offer with the caller's onion address. Callee decrypts, dials back through Tor. No phone number. No account. No server.
+**Payment:** after the call, caller shields STRK into the STRK20 privacy pool, does a private transfer to the callee's shielded address, callee unshields. The on-chain record shows pool interactions — not who paid who.
 
-**How payment works:** after the call, caller shields STRK into the STRK20 privacy pool, does a private transfer to the callee's shielded address, callee unshields. The on-chain record shows pool interactions — not who paid who.
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/home.png" width="220" alt="Home"/>
+  &nbsp;&nbsp;
+  <img src="screenshots/call.png" width="220" alt="Call"/>
+  &nbsp;&nbsp;
+  <img src="screenshots/onboarding.png" width="220" alt="Onboarding"/>
+  &nbsp;&nbsp;
+  <img src="screenshots/settings.png" width="220" alt="Settings"/>
+</p>
 
 ## Download
 
